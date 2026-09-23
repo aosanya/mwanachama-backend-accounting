@@ -241,4 +241,64 @@ func RunLedgerConformance(t *testing.T, newRepo func(t *testing.T) LedgerReposit
 			t.Fatalf("want ErrNotFound for an unknown ReversesEntryID, got %v", err)
 		}
 	})
+
+	// W15_PostDoesNotRefuseADoubleReversal pins a known defect (board row
+	// W15): Post only checks that ReversesEntryID names an existing entry —
+	// it never checks that entry has not already been reversed. A second
+	// Post naming the same ReversesEntryID succeeds exactly like the first,
+	// so the "original" entry silently gets corrected twice and the
+	// holder's balance drifts away from zero. This test must go RED once
+	// W15's fix lands (Post must refuse a ReversesEntryID that some
+	// existing entry already reverses) — flip the two Fatalf calls below to
+	// assert the second Post is rejected and the balance stays at 0.
+	t.Run("W15_PostDoesNotRefuseADoubleReversal", func(t *testing.T) {
+		r := newRepo(t)
+		ctx := context.Background()
+		holder := openHolder(t, r, "holder-1")
+		pool := openPool(t, r, "pool-1")
+
+		original, err := r.Post(ctx, Entry{
+			FromAccountID: pool.ID, ToAccountID: holder.ID, Amount: 1000,
+			DocumentKind: "test-document", DocumentID: "doc-1", ActorID: "actor-1",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := r.Post(ctx, Entry{
+			FromAccountID: holder.ID, ToAccountID: pool.ID, Amount: 1000,
+			DocumentKind: "correction", DocumentID: "doc-1", ActorID: "actor-1",
+			ReversesEntryID: original.ID,
+		}); err != nil {
+			t.Fatalf("first reversal should succeed: %v", err)
+		}
+
+		balanceAfterOneReversal, err := r.Balance(ctx, holder.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if balanceAfterOneReversal != 0 {
+			t.Fatalf("balance after one reversal = %d, want 0", balanceAfterOneReversal)
+		}
+
+		// KNOWN DEFECT (W15): a second Post reversing the same original
+		// entry is accepted with no error at all.
+		if _, err := r.Post(ctx, Entry{
+			FromAccountID: holder.ID, ToAccountID: pool.ID, Amount: 1000,
+			DocumentKind: "correction", DocumentID: "doc-1", ActorID: "actor-1",
+			ReversesEntryID: original.ID,
+		}); err != nil {
+			t.Fatalf("pin: current (buggy) behaviour accepts a second reversal of the same entry; got an error instead, meaning W15 may already be fixed: %v", err)
+		}
+
+		// KNOWN DEFECT (W15): the double reversal drags the holder's
+		// balance to -1000 instead of leaving it at 0.
+		balanceAfterDoubleReversal, err := r.Balance(ctx, holder.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if balanceAfterDoubleReversal != -1000 {
+			t.Fatalf("pin: current (buggy) behaviour drives the balance to -1000 after a double reversal; got %d instead, meaning W15 may already be fixed", balanceAfterDoubleReversal)
+		}
+	})
 }
