@@ -1,0 +1,19 @@
+{
+  "module": "accounting",
+  "domain": "mwanachama",
+  "instance": "mwanachama",
+  "objects": [
+    {
+      "role": "account",
+      "name": "account",
+      "table": "accounts",
+      "description": "A member's account, a structure's contribution basket, a paybill, a bank, or the suspense account an unmatched statement row lands in until somebody claims it."
+    },
+    {
+      "role": "entry",
+      "name": "entry",
+      "table": "entries",
+      "description": "One movement of money in the contribution ledger: a contribution posted, a handout issued, an import matched, a correction reversing any of them."
+    }
+  ]
+}

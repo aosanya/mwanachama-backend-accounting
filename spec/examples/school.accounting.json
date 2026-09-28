@@ -1,0 +1,28 @@
+{
+  "module": "accounting",
+  "domain": "school",
+  "instance": "brookside",
+  "objects": [
+    {
+      "role": "account",
+      "name": "fee_account",
+      "table": "fee_accounts",
+      "description": "A pupil's fee account, a bursary fund, or a term's tuition income — this school's own nouns for the same two roles a membership ledger fills with baskets and paybills."
+    },
+    {
+      "role": "entry",
+      "name": "posting",
+      "table": "postings",
+      "description": "One movement against a fee account: an invoice raised, a payment received, a bursary applied, or a correction reversing one of them.",
+      "indexes": [
+        {
+          "name": "invoice",
+          "description": "Finds every posting raised by one invoice, which is how a bursar reconciles a term.",
+          "fields": [
+            "document_id"
+          ]
+        }
+      ]
+    }
+  ]
+}

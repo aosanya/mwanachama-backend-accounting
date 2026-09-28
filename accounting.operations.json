@@ -1,0 +1,157 @@
+{
+  "operations": {
+    "open_account": {
+      "method": "POST",
+      "path": "/accounts",
+      "call": "OpenAccount",
+      "action": "accounting.account.open",
+      "status": 201,
+      "title": "Open account",
+      "description": "Return the account for this (category, holder_id), opening it if it does not exist yet. Opening is lazy and idempotent: an account exists because something was posted to it, never because its holder merely registered, and asking twice returns the same account rather than a second one.",
+      "args": [
+        {
+          "from": "body",
+          "whole": true
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "get_account": {
+      "method": "GET",
+      "path": "/accounts/{accountID}",
+      "call": "GetAccount",
+      "action": "accounting.account.read",
+      "title": "Read account",
+      "description": "Read one account by its storage id.",
+      "args": [
+        {
+          "from": "path",
+          "as": "accountID",
+          "description": "The account to read."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "list_accounts": {
+      "method": "GET",
+      "path": "/accounts",
+      "call": "ListAccounts",
+      "action": "accounting.account.list",
+      "title": "List accounts",
+      "description": "List the chart of accounts, oldest-opened first.",
+      "args": [
+        {
+          "from": "query",
+          "as": "limit",
+          "description": "Cap the accounts returned. Zero or absent means the default page."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "close_account": {
+      "method": "POST",
+      "path": "/accounts/{accountID}/close",
+      "call": "CloseAccount",
+      "action": "accounting.account.close",
+      "title": "Close account",
+      "description": "Stamp an account closed. Refused while it still carries a balance, and refused if it is already closed.",
+      "args": [
+        {
+          "from": "path",
+          "as": "accountID",
+          "description": "The account to close."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "account_balance": {
+      "method": "GET",
+      "path": "/accounts/{accountID}/balance",
+      "call": "Balance",
+      "action": "accounting.account.balance",
+      "title": "Read balance",
+      "description": "Fold one account's balance: everything debited to it minus everything credited from it, over every entry naming it. There is no stored balance anywhere in this module, so this is computed on every call.",
+      "args": [
+        {
+          "from": "path",
+          "as": "accountID",
+          "description": "The account to fold."
+        }
+      ],
+      "returns": [
+        {
+          "as": "balance"
+        }
+      ]
+    },
+    "post_entry": {
+      "method": "POST",
+      "path": "/entries",
+      "call": "Post",
+      "action": "accounting.entry.post",
+      "status": 201,
+      "title": "Post entry",
+      "description": "Append one journal entry, debiting one account and crediting another for the same amount. There is no update and no delete: a mistake is corrected by posting a new entry that names the original in reverses_entry_id, and an entry may be reversed at most once.",
+      "args": [
+        {
+          "from": "body",
+          "whole": true
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "list_entries": {
+      "method": "GET",
+      "path": "/accounts/{accountID}/entries",
+      "call": "ListEntries",
+      "action": "accounting.entry.list",
+      "title": "List entries",
+      "description": "Read one account's ledger, both sides, ordered on when the event occurred and falling back to when it was posted, oldest first so a running balance can be accumulated down the page.",
+      "args": [
+        {
+          "from": "path",
+          "as": "accountID",
+          "description": "The account whose ledger to read."
+        },
+        {
+          "from": "query",
+          "as": "limit",
+          "description": "Cap the entries returned. Zero or absent means the default page."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    }
+  },
+  "errors": {
+    "ErrNotFound": 404,
+    "ErrInvalid": 400,
+    "ErrClosed": 409,
+    "ErrNonZeroBalance": 409,
+    "ErrAlreadyReversed": 409,
+    "ErrCodeTaken": 409
+  }
+}

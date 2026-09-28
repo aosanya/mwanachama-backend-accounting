@@ -17,11 +17,31 @@ domain-agnostic ledger core (`Account{ID, Kind, HolderID, Type, ...}`,
 is — the same discipline `mwanachama-backend-actor` holds for "chapter" and
 `mwanachama-backend-forms` holds for "survey" (see `CLAUDE.md`). Everything
 below that names `member`/`basket`/`suspense`, or an `AccountTypeFor`-style
-pairing, describes vocabulary that belongs in
-`mwanachama-backend-api-gateway`'s own `internal/store/accountingadapter`
-(mirroring `internal/store/formsadapter`'s shape for surveys) — a
+pairing, describes vocabulary that lives with the consumer, not here — a
 `contribution/` subpackage briefly existed inside *this* repo holding it
 and was removed; the content is still correct, only its address changed.
+
+**2026-09-28 — that address has changed again, and this file was written
+before it did.** Every `accountingadapter.X` name below should be read as
+"the consumer's own name for X". Two consumers exist:
+
+- **`mwanachama-wakala-api`, run locally, is the working one.** It mounts
+  this repo's declared routes per registered instance, and a domain's
+  categories and document kinds are **declared data in that instance's
+  `accounting.<domain>.json` spec** — not Go constants in an adapter
+  package. The
+  [party-mobilization template](../../../developer/documentation/4.%20qa/agencies/party-mobilization/accounting.json)
+  is a worked example. Because each instance owns its own table set, the
+  "org-wide chart of accounts" decision below is bounded by the instance
+  there.
+- **`mwanachama-backend-api-gateway`** still imports this repo and still
+  holds `internal/store/accountingadapter`, which is what the names below
+  literally refer to. That path is older and single-tenant; it is not what
+  current work targets.
+
+Everything else below — the suspense-account shape, the Kind→Type pairing,
+why this is not the merchandise ledger generalized — is unaffected by which
+consumer holds the vocabulary.
 
 ## Why a new ledger, and why it isn't the merchandise ledger generalized
 
@@ -106,12 +126,22 @@ operator carrying a treasury role specifically, not any HQ admin. Chosen
 over "any HQ admin" because the contribution board's own history
 (`todo_contributions_match.md`'s DEV-907) already flagged `is_admin()`
 gating a money-read as too broad on the old Supabase plane — this ledger
-doesn't repeat that. **Decided, not yet built**: the capability constants
-and the enforcement itself live in `mwanachama-backend-api-gateway`'s
+doesn't repeat that. The capability constants and the enforcement itself
+were to live in `mwanachama-backend-api-gateway`'s
 `internal/api/http/capability.go`, alongside `CapViewMerchandise`'s
 existing pattern, and land with that repo's DEV-1674/1675 wiring, not in
-this repo — this repo has no HTTP layer and no auth of any kind, by design
-(see CLAUDE.md).
+this repo — this repo has no auth of any kind, by design (see CLAUDE.md).
+
+**2026-09-28 — superseded on the working path.** `mwanachama-wakala-api`
+gates accounting through `mwanachama-backend-permissions` on the `action`
+each declared operation carries (`accounting.account.open`,
+`accounting.entry.post`, …) under a `module:accounting` scope, passed in as
+`routes.Mount{Authorize: …}`. That is per-operation, where
+`CapViewLedger`/`CapPostLedger` was a read/write pair, so the treasury-scoped
+intent above still has to be expressed as a set of actions granted to a
+treasury role — it does not carry over by itself. This repo did gain a
+`routes/` package (W14) since this decision was written, but it still holds
+no auth: `Authorize` is supplied by the caller.
 
 **3. Multi-currency.** Still deferred. `contribution.currency` today is "one
 currency per organization" (`contribution.md`); this ledger inherits that
@@ -147,9 +177,11 @@ merchandise ledger's `in_transit` account resolves an analogous problem
 Prototyped once as `contribution/contribution.go` inside this repo
 (`AccountSuspense`, `DocContributionUnmatched`, `DocContributionMatched`,
 `AccountTypeFor`, `OpenAccount`), proven end to end against this repo's own
-`MemoryRepository`/`PostgresRepository`, then removed and due to land
-instead in `mwanachama-backend-api-gateway`'s `internal/store/
-accountingadapter` — see `todo_done.md`'s W11/W13. **Still not built
+`MemoryRepository`/`PostgresRepository`, then removed — see `todo_done.md`'s
+W11/W13. It landed in `mwanachama-backend-api-gateway`'s
+`internal/store/accountingadapter`; on the wakala-api path the same three
+categories and document kinds are declared in the instance's
+`accounting.<domain>.json` spec instead. **Still not built
 anywhere**: the statement parser, the phone-hash
 computation and matching itself, and dedup on
 `(statement_import_id, external_ref)` — those need
@@ -173,19 +205,61 @@ this domain's usage fixes a value, it's noted alongside.
 
 ## Fields (as built — `Entry`)
 
+Renamed to standard double-entry vocabulary on 2026-09-28, and declared in
+`accounting.blueprint.json` rather than in Go. Timestamps are RFC 3339
+strings at nanosecond, fixed-width precision (`models.TimeLayout`), because
+they are stored as text and ordered lexicographically.
+
 | Field | Type | Notes |
 | --- | --- | --- |
-| `ID` | uuid | |
+| `ID` | string | storage key |
 | `PostedAt` | timestamp | when it hit the books |
-| `OccurredAt` | timestamp, nullable | when the payment happened; ordering key, coalesces to `PostedAt` |
-| `FromAccountID` | uuid | |
-| `ToAccountID` | uuid | |
-| `Amount` | decimal | always positive; direction is the two accounts, never a sign |
-| `DocumentKind` | string, open | this domain uses `accountingadapter.DocContribution` \| `DocContributionUnmatched` \| `DocContributionMatched` \| `DocCorrection` — the root package does not validate against a fixed list |
-| `DocumentID` | uuid | polymorphic pointer at what caused the posting (a statement row, a manual attach, a correction) |
-| `ActorID` | uuid | the person who caused the posting — accountability, same as `merchandise_entry.actor_id` |
-| `Detail` | text | the sentence the ledger reads back |
-| `ReversesEntryID` | uuid, nullable | corrections only — the original is never touched |
+| `OccurredAt` | timestamp, optional | when the payment happened; ordering key, coalesces to `PostedAt` |
+| `DebitAccountID` | string | the receiving side — was `FromAccountID`'s counterpart, `ToAccountID` |
+| `CreditAccountID` | string | the source side — was `FromAccountID` |
+| `Amount` | int64 | always positive, in the smallest denominated unit; which side is which is the two accounts, never a sign |
+| `DocumentKind` | string, open | the source document's kind in the calling domain's words — an invoice, a receipt, a statement import. The module enforces that every entry names one, never which ones exist |
+| `DocumentID` | string | pointer at what caused the posting |
+| `ActorID` | string | who caused the posting — accountability, same as `merchandise_entry.actor_id` |
+| `Narration` | text | the sentence the ledger reads back — was `Detail` |
+| `ReversesEntryID` | string, optional | corrections only; the original is never touched, and an entry may be reversed **at most once** |
+
+## Fields (as built — `Account`)
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `ID` | string | storage key |
+| `Code` | string, optional | the chart-of-accounts number, e.g. `1000`. Caller-supplied, never minted here; unique across the ledger when given |
+| `Name` | string, optional | the account's title as a ledger prints it |
+| `Category` | string, open | what sort of account this is, in the domain's words — was `Kind` |
+| `Type` | enum | asset / liability / equity / income / expense; the one closed vocabulary |
+| `HolderID` | string | the subject this subsidiary account is kept for. Keeps its name: no bookkeeping term means this |
+| `OpenedAt` | timestamp | written by the store |
+| `ClosedAt` | timestamp, optional | the only value on an account that ever changes |
+
+An account's identity is the unique index on `(category, holder_id)`.
+
+### Which side is the debit
+
+Money moves **into** the debit account. `Balance` folds
+`debits − credits`, which is the standard debit-balance reading and is
+numerically identical to what the entity-graph ledger computed as
+`to − from` — so the conversion moved no balances. A consumer that reads an
+account in its *natural* sense still negates for a credit-normal type; that
+is the consumer's job, not this module's, because nothing here folds a
+balance by `Type`.
+
+### Two rules the spec cannot state, so they stay in Go
+
+- **An entry may be reversed at most once.** `Post` checks inside the
+  writing transaction and answers `ErrAlreadyReversed`; `Provision` also
+  creates a partial unique index on `reverses_entry_id` where it is
+  non-empty, so a true race is refused by the database rather than
+  silently drifting the ledger off zero-sum. A plain declared `unique`
+  would not do: every non-reversing entry stores `''`, not NULL, and they
+  would all collide.
+- **A non-empty `code` is unique.** Same shape, same reason —
+  `ErrCodeTaken`, backed by a partial unique index.
 
 No balance column anywhere, by the same rule G49 states for merchandise: a
 balance is a fold over entries, computed on read.

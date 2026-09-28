@@ -1,32 +1,81 @@
 package routes
 
 import (
-	"net/http"
+	"fmt"
+	"sort"
+	"sync"
 
-	"github.com/aosanya/mwanachama-backend-accounting"
+	"github.com/aosanya/mwanachama-backend-shared/dispatch"
+	"github.com/aosanya/mwanachama-backend-shared/httpwire"
+
+	accounting "github.com/aosanya/mwanachama-backend-accounting"
 )
 
-// Route is one HTTP endpoint: a method, a path relative to this package's
-// mount point, and the handler. The mounting process wraps Handler with its
-// own auth/capability gates and builds the mux itself — see doc.go.
-type Route struct {
-	Method  string
-	Path    string
-	Handler http.HandlerFunc
+type Route = httpwire.Route
+
+var operations = sync.OnceValues(func() (*dispatch.Spec, error) {
+	return dispatch.Parse(accounting.Operations())
+})
+
+var sentinels = map[string]error{
+	"ErrNotFound":        accounting.ErrNotFound,
+	"ErrInvalid":         accounting.ErrInvalid,
+	"ErrClosed":          accounting.ErrClosed,
+	"ErrNonZeroBalance":  accounting.ErrNonZeroBalance,
+	"ErrAlreadyReversed": accounting.ErrAlreadyReversed,
+	"ErrCodeTaken":       accounting.ErrCodeTaken,
 }
 
-// Pattern returns the Go 1.22+ ServeMux pattern for this route under
-// prefix, e.g. Pattern("/v1/accounting") on {Method: "GET", Path:
-// "/accounts/{accountID}"} yields "GET /v1/accounting/accounts/{accountID}".
-func (rt Route) Pattern(prefix string) string {
-	return rt.Method + " " + prefix + rt.Path
+type Mount struct {
+	Authorize dispatch.Authorizer
+	Caller    dispatch.Caller
 }
 
-// Routes returns every route this package defines, over repo. Concatenates
-// the per-model route lists — see account.go and entry.go.
-func Routes(repo accounting.LedgerRepository) []Route {
-	var out []Route
-	out = append(out, AccountRoutes(repo)...)
-	out = append(out, EntryRoutes(repo)...)
+func Build(repo accounting.LedgerRepository) ([]Route, error) { return BuildWith(repo, nil) }
+
+func BuildWith(repo accounting.LedgerRepository, authorize dispatch.Authorizer) ([]Route, error) {
+	return BuildFor(repo, Mount{Authorize: authorize})
+}
+
+func BuildFor(repo accounting.LedgerRepository, m Mount) ([]Route, error) {
+	s, err := operations()
+	if err != nil {
+		return nil, err
+	}
+	return dispatch.Dispatch(s, dispatch.Deps{
+		Manager: repo, Errors: sentinels, Authorize: m.Authorize, Caller: m.Caller,
+	})
+}
+
+func Routes(repo accounting.LedgerRepository) []Route { return RoutesWith(repo, nil) }
+
+func RoutesWith(repo accounting.LedgerRepository, authorize dispatch.Authorizer) []Route {
+	return RoutesFor(repo, Mount{Authorize: authorize})
+}
+
+func RoutesFor(repo accounting.LedgerRepository, m Mount) []Route {
+	out, err := BuildFor(repo, m)
+	if err != nil {
+		panic(fmt.Sprintf("accounting routes: %v", err))
+	}
+	return out
+}
+
+func Shape() []Route {
+	s, err := operations()
+	if err != nil {
+		panic(fmt.Sprintf("accounting routes: %v", err))
+	}
+	names := make([]string, 0, len(s.Operations))
+	for name := range s.Operations {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	out := make([]Route, 0, len(names))
+	for _, name := range names {
+		op := s.Operations[name]
+		out = append(out, Route{Method: op.Method, Path: s.Base + op.Path, Action: op.Action})
+	}
 	return out
 }

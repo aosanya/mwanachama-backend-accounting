@@ -21,9 +21,17 @@ Four folders, in SDLC order, and everything lives under one of them.
 ## What this repo is
 
 A book-of-record general ledger — chart of accounts, full double-entry
-postings — for Mwanachama, absorbing the `contribution` domain. Built on
-[mwanachama-backend-shared](../mwanachama-backend-shared)'s entity-graph
-store instead of Supabase, and imported directly by
-[mwanachama-backend-api-gateway](../mwanachama-backend-api-gateway) — no
-gRPC, no sub-service shape. The merchandise/stock ledger stays a separate
-system in the gateway; see [CLAUDE.md](../CLAUDE.md) for why.
+postings — for Mwanachama, absorbing the `contribution` domain. A declared
+domain on [mwanachama-backend-shared](../../mwanachama-backend-shared)'s
+`spec`/`specstore`/`dispatch` engine instead of Supabase, and imported
+directly by its consumer — no gRPC, no sub-service shape.
+
+The working consumer is
+[mwanachama-wakala-api](../../mwanachama-wakala-api), run locally, which
+mounts the declared routes once per registered instance against that
+instance's own table set.
+[mwanachama-backend-api-gateway](../../mwanachama-backend-api-gateway) also
+imports this repo and is the older single-tenant path; see
+[CLAUDE.md](../CLAUDE.md) for what that means for where domain vocabulary
+lives. The merchandise/stock ledger stays a separate system in the gateway;
+see [CLAUDE.md](../CLAUDE.md) for why.

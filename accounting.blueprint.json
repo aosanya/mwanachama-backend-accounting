@@ -1,0 +1,193 @@
+{
+  "module": "accounting",
+  "objects": [
+    {
+      "role": "account",
+      "description": "One line of the chart of accounts. Category and holder_id together are its identity, and it is opened lazily by its first posting rather than because its holder registered.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "code",
+          "type": "string",
+          "description": "The account number a chart of accounts is laid out by, such as 1000 for cash. Supplied by the caller and never minted here; optional, and unique across the ledger when it is given.",
+          "immutable": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "description": "The account's title as a ledger prints it, such as 'Cash at bank'. Free text the caller chooses."
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "description": "What sort of account this is, in the calling domain's own words — a member's account, a paybill's basket, a school's fee account. Deliberately open: which categories exist is the part that differs between a membership organisation, a school and a token ledger, so this module never validates it against a fixed list.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "type",
+          "type": "enum",
+          "description": "The account's place in the accounting equation, and so its normal balance. The one closed vocabulary here, because it is double-entry theory itself rather than a decision any one domain gets to make differently.",
+          "required": true,
+          "immutable": true,
+          "values": [
+            "asset",
+            "liability",
+            "equity",
+            "income",
+            "expense"
+          ]
+        },
+        {
+          "name": "holder_id",
+          "type": "string",
+          "description": "The subject this subsidiary account is kept for — a member, a paybill, a student, a wallet address. An opaque id the caller supplies and interprets; this module never reads it for meaning, only for identity.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "opened_at",
+          "type": "timestamp",
+          "description": "When the first posting opened the account. Written by the store, never by a caller.",
+          "immutable": true
+        },
+        {
+          "name": "closed_at",
+          "type": "timestamp",
+          "description": "When the account was closed. The only value on an account that ever changes, and it is refused while a balance remains."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "identity",
+          "description": "Enforces one account per (category, holder_id), which is what makes opening idempotent rather than a pre-check-then-insert race.",
+          "fields": [
+            "category",
+            "holder_id"
+          ],
+          "unique": true
+        },
+        {
+          "name": "code",
+          "description": "Backs the refusal of a code some other account already carries. Not declared unique, because every account without a code stores the empty string rather than null and they would all collide on one constraint.",
+          "fields": [
+            "code"
+          ]
+        },
+        {
+          "name": "opened",
+          "description": "Orders the account listing oldest-opened first.",
+          "fields": [
+            "opened_at"
+          ]
+        }
+      ]
+    },
+    {
+      "role": "entry",
+      "description": "One journal entry: an amount debited to exactly one account and credited to exactly one other. Append-only — there is no update and no delete, and a mistake is corrected by a new entry naming the original in reverses_entry_id.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "posted_at",
+          "type": "timestamp",
+          "description": "When it hit the books. Written by the store, never by a caller.",
+          "immutable": true
+        },
+        {
+          "name": "occurred_at",
+          "type": "timestamp",
+          "description": "When the underlying event happened. A read that orders a ledger orders on this, falling back to posted_at where it is absent.",
+          "immutable": true
+        },
+        {
+          "name": "debit_account_id",
+          "type": "string",
+          "description": "The account debited. Every entry names both sides; there is no one-sided posting in this ledger.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "credit_account_id",
+          "type": "string",
+          "description": "The account credited, for the same amount, which is what makes the entry balance.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "amount",
+          "type": "int",
+          "description": "The amount posted to both sides, in the deployment's smallest denominated unit, always positive. Which side is which is the two accounts, never a sign, so no posting can change the sum of every balance in the ledger.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "document_kind",
+          "type": "string",
+          "description": "What sort of source document caused the posting — an invoice, a receipt, a statement import — in the calling domain's own words. Open for the same reason category is: this module enforces that every entry names one, never which ones exist.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "document_id",
+          "type": "string",
+          "description": "The source document that caused the posting.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "actor_id",
+          "type": "string",
+          "description": "Who or what caused the posting, never only a role. The ledger is an accountability surface, so this is required.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "narration",
+          "type": "text",
+          "description": "The sentence the ledger reads back against this entry; on a correction, the reason for the reversal.",
+          "immutable": true
+        },
+        {
+          "name": "reverses_entry_id",
+          "type": "string",
+          "description": "The entry this one corrects, or empty. The original is never touched, and an entry may be reversed at most once — a second reversal would drift the ledger off zero-sum.",
+          "immutable": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "debit_account",
+          "description": "Reads the debit side of one account's ledger, which every balance and listing folds.",
+          "fields": [
+            "debit_account_id"
+          ]
+        },
+        {
+          "name": "credit_account",
+          "description": "Reads the credit side of the same.",
+          "fields": [
+            "credit_account_id"
+          ]
+        },
+        {
+          "name": "reverses",
+          "description": "Answers 'has this entry already been reversed' without scanning the ledger, which is the check that keeps a correction from being applied twice.",
+          "fields": [
+            "reverses_entry_id"
+          ]
+        }
+      ]
+    }
+  ]
+}
