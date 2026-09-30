@@ -21,14 +21,14 @@ func TestASecondDomainRunsTheSameLedger(t *testing.T) {
 	if !ok {
 		t.Fatal("the school spec fills no account")
 	}
-	if got, want := s.TableFor(accounts), "brookside_accounting_fee_accounts"; got != want {
+	if got, want := s.RawNameFor(accounts), "accounting_main_fee_accounts"; got != want {
 		t.Fatalf("accounts land in %q, want %q", got, want)
 	}
 	entries, ok := s.ByRole("entry")
 	if !ok {
 		t.Fatal("the school spec fills no entry")
 	}
-	if got, want := s.TableFor(entries), "brookside_accounting_postings"; got != want {
+	if got, want := s.RawNameFor(entries), "accounting_main_postings"; got != want {
 		t.Fatalf("entries land in %q, want %q", got, want)
 	}
 

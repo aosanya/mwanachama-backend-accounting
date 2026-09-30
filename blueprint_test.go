@@ -109,16 +109,16 @@ func TestAccountTypeValuesAndGoConstantsAgree(t *testing.T) {
 func TestShippedSpecNamesTablesUnderInstanceAndModule(t *testing.T) {
 	s := shippedSpec(t)
 	want := map[string]string{
-		"account": "mwanachama_accounting_accounts",
-		"entry":   "mwanachama_accounting_entries",
+		"account": "accounting_main_accounts",
+		"entry":   "accounting_main_entries",
 	}
 	for role, table := range want {
 		o, ok := s.ByRole(role)
 		if !ok {
 			t.Fatalf("the shipped spec fills no %q", role)
 		}
-		if got := s.TableFor(o); got != table {
-			t.Errorf("%s lands in %q, want %q", role, got, table)
+		if got := s.RawNameFor(o); got != table {
+			t.Errorf("%s is raw-named %q, want %q", role, got, table)
 		}
 	}
 }
