@@ -111,6 +111,12 @@
           "immutable": true
         },
         {
+          "name": "due_at",
+          "type": "timestamp",
+          "description": "When what the entry records falls due, as an RFC 3339 instant. Absent means the entry has no due date and is never overdue. The overdue read ages from this rather than from when the entry was posted.",
+          "immutable": true
+        },
+        {
           "name": "debit_account_id",
           "type": "string",
           "description": "The account debited. Every entry names both sides; there is no one-sided posting in this ledger.",

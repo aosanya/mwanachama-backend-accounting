@@ -193,6 +193,31 @@
           "body": true
         }
       ]
+    },
+    "overdue_entries": {
+      "method": "GET",
+      "path": "/accounts/{accountID}/overdue",
+      "call": "Overdue",
+      "action": "accounting.entry.overdue",
+      "title": "List overdue entries",
+      "description": "Read one account's entries whose due_at has passed as of an instant, each with the whole days it is overdue, oldest due first. An entry with no due_at is never listed, nor is an entry that has been reversed or one that reverses another.",
+      "args": [
+        {
+          "from": "path",
+          "as": "accountID",
+          "description": "The account whose overdue entries to read."
+        },
+        {
+          "from": "query",
+          "as": "as_of",
+          "description": "The instant to age against, as an RFC 3339 instant. Absent means now."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
     }
   },
   "errors": {

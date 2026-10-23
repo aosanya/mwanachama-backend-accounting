@@ -15,6 +15,7 @@ type Entry struct {
 	ID              string       `json:"id"`
 	PostedAt        string       `json:"posted_at"`
 	OccurredAt      string       `json:"occurred_at,omitempty"`
+	DueAt           string       `json:"due_at,omitempty"`
 	DebitAccountID  string       `json:"debit_account_id"`
 	CreditAccountID string       `json:"credit_account_id"`
 	Amount          int64        `json:"amount"`
@@ -41,4 +42,15 @@ type Variance struct {
 	Budgeted    int64  `json:"budgeted"`
 	Actual      int64  `json:"actual"`
 	Difference  int64  `json:"difference"`
+}
+
+type OverdueEntry struct {
+	Entry
+	DaysOverdue int64 `json:"days_overdue"`
+}
+
+type Overdue struct {
+	AccountID string         `json:"account_id"`
+	AsOf      string         `json:"as_of"`
+	Items     []OverdueEntry `json:"items"`
 }

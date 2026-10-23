@@ -3,6 +3,7 @@ package accounting
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aosanya/mwanachama-backend-accounting/models"
 )
@@ -15,6 +16,8 @@ type (
 	DocumentKind    = models.DocumentKind
 	Budget          = models.Budget
 	Variance        = models.Variance
+	OverdueEntry    = models.OverdueEntry
+	Overdue         = models.Overdue
 )
 
 const (
@@ -53,6 +56,11 @@ func checkEntryBeyondSpec(e Entry) error {
 	}
 	if strings.TrimSpace(e.DebitAccountID) == strings.TrimSpace(e.CreditAccountID) {
 		return fmt.Errorf("%w: an entry cannot debit and credit the same account", ErrInvalid)
+	}
+	if e.DueAt != "" {
+		if _, err := time.Parse(time.RFC3339Nano, e.DueAt); err != nil {
+			return fmt.Errorf("%w: due_at %q is not an RFC 3339 instant", ErrInvalid, e.DueAt)
+		}
 	}
 	return nil
 }
