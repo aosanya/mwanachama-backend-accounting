@@ -14,6 +14,12 @@
       "name": "entry",
       "table": "entries",
       "description": "One movement of money in the contribution ledger: a contribution posted, a handout issued, an import matched, a correction reversing any of them."
+    },
+    {
+      "role": "budget",
+      "name": "budget",
+      "table": "budgets",
+      "description": "What a basket or an account is expected to collect or spend over one period, read against what was actually posted."
     }
   ]
 }

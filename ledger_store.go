@@ -22,6 +22,7 @@ func NewLedgerRepository(db *gorm.DB, s *spec.Spec) (LedgerRepository, error) {
 	st, err := newStore(db, s, map[string]any{
 		roleAccount: models.Account{},
 		roleEntry:   models.Entry{},
+		roleBudget:  models.Budget{},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("NewLedgerRepository: %w", err)

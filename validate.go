@@ -11,6 +11,7 @@ import (
 const (
 	RoleAccount = roleAccount
 	RoleEntry   = roleEntry
+	RoleBudget  = roleBudget
 )
 
 func Check(s *spec.Spec, role string, v any) error {

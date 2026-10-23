@@ -188,6 +188,61 @@
           ]
         }
       ]
+    },
+    {
+      "role": "budget",
+      "description": "What one account is expected to hold over one period. Kept beside the ledger rather than as a second account, so a variance is one read rather than two balances. Setting a budget again for the same account and period replaces its amount.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "account_id",
+          "type": "string",
+          "description": "The account the budget is set against.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "period_start",
+          "type": "timestamp",
+          "description": "The first instant of the period, inclusive, as an RFC 3339 instant.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "period_end",
+          "type": "timestamp",
+          "description": "The instant the period ends, exclusive, as an RFC 3339 instant after period_start.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "amount",
+          "type": "int",
+          "description": "The budgeted balance for the period, in the same smallest unit and the same debit-minus-credit sense as the account's balance."
+        },
+        {
+          "name": "set_at",
+          "type": "timestamp",
+          "description": "When the amount was last set. Written by the store, never by a caller."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "period",
+          "description": "Enforces one budget per account and period, which is what makes setting a budget a replace rather than a second row.",
+          "fields": [
+            "account_id",
+            "period_start",
+            "period_end"
+          ],
+          "unique": true
+        }
+      ]
     }
   ]
 }

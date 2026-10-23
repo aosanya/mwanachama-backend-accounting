@@ -21,9 +21,9 @@ func blueprint(t *testing.T) *spec.Blueprint {
 	return b
 }
 
-func TestBlueprintDeclaresBothRoles(t *testing.T) {
+func TestBlueprintDeclaresItsThreeRoles(t *testing.T) {
 	got := blueprint(t).Roles()
-	want := []string{"account", "entry"}
+	want := []string{"account", "budget", "entry"}
 	if len(got) != len(want) {
 		t.Fatalf("roles = %v, want %v", got, want)
 	}

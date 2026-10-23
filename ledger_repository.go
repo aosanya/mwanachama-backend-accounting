@@ -18,4 +18,8 @@ type LedgerRepository interface {
 	Balance(ctx context.Context, accountID string) (int64, error)
 
 	ListEntries(ctx context.Context, accountID string, limit int) ([]Entry, error)
+
+	SetBudget(ctx context.Context, b Budget) (Budget, error)
+
+	Variance(ctx context.Context, accountID, periodStart, periodEnd string) (Variance, error)
 }

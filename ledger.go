@@ -13,6 +13,8 @@ type (
 	AccountType     = models.AccountType
 	AccountCategory = models.AccountCategory
 	DocumentKind    = models.DocumentKind
+	Budget          = models.Budget
+	Variance        = models.Variance
 )
 
 const (

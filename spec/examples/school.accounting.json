@@ -23,6 +23,12 @@
           ]
         }
       ]
+    },
+    {
+      "role": "budget",
+      "name": "term_budget",
+      "table": "term_budgets",
+      "description": "What a fee account or a fund is expected to hold over one term, read against what the bursar actually posted."
     }
   ]
 }

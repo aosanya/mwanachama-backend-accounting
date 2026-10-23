@@ -144,6 +144,55 @@
           "body": true
         }
       ]
+    },
+    "set_budget": {
+      "method": "PUT",
+      "path": "/budgets",
+      "call": "SetBudget",
+      "action": "accounting.budget.set",
+      "title": "Set budget",
+      "description": "Set what one account is expected to hold over one period. Setting it again for the same account and period replaces the amount. The period runs from period_start, inclusive, to period_end, exclusive.",
+      "args": [
+        {
+          "from": "body",
+          "whole": true
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "variance": {
+      "method": "GET",
+      "path": "/accounts/{accountID}/variance",
+      "call": "Variance",
+      "action": "accounting.budget.variance",
+      "title": "Read variance",
+      "description": "Read one account's budget for a period beside its actual balance over that period, and the difference, actual minus budgeted. The actual folds only entries whose occurred_at, or posted_at where that is absent, falls inside the period.",
+      "args": [
+        {
+          "from": "path",
+          "as": "accountID",
+          "description": "The account to compare."
+        },
+        {
+          "from": "query",
+          "as": "period_start",
+          "description": "The period's first instant, inclusive, exactly as the budget was set."
+        },
+        {
+          "from": "query",
+          "as": "period_end",
+          "description": "The period's end, exclusive, exactly as the budget was set."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
     }
   },
   "errors": {

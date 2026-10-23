@@ -47,18 +47,17 @@ func patterns(rts []routes.Route, prefix string) []string {
 	return out
 }
 
-// The address set is what the conversion must not move: the gateway's
-// Postman gate reads addresses, so a route that changed shape would show up
-// there as a coverage change rather than as a test failure here.
 func TestRoutesAnswerTheSameAddressesAsBeforeTheConversion(t *testing.T) {
 	want := []string{
 		"GET /accounts",
 		"GET /accounts/{accountID}",
 		"GET /accounts/{accountID}/balance",
 		"GET /accounts/{accountID}/entries",
+		"GET /accounts/{accountID}/variance",
 		"POST /accounts",
 		"POST /accounts/{accountID}/close",
 		"POST /entries",
+		"PUT /budgets",
 	}
 	got := patterns(routes.Routes(newRepo(t)), "")
 	if len(got) != len(want) {

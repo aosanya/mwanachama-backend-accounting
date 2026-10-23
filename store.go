@@ -10,6 +10,7 @@ import (
 const (
 	roleAccount = "account"
 	roleEntry   = "entry"
+	roleBudget  = "budget"
 )
 
 type store = specstore.Store
