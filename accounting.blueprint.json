@@ -165,6 +165,12 @@
           "immutable": true
         },
         {
+          "name": "dimensions",
+          "type": "json",
+          "description": "Further facts the posting is analysed by, as a flat object of named keys to text values — a department, a cost centre, a project, a fiscal year. The caller chooses both the keys and the values; this module never learns what any of them mean. Each key is lower-case letters, digits and underscores, starting with a letter, at most 63 characters; each value is non-empty text of at most 200 characters with no control characters; at most 16 keys. An entry's dimensions narrow a listing and a balance without a separate account per combination. Absent means the entry carries none.",
+          "immutable": true
+        },
+        {
           "name": "reverses_entry_id",
           "type": "string",
           "description": "The entry this one corrects, or empty. The original is never touched, and an entry may be reversed at most once — a second reversal would drift the ledger off zero-sum.",

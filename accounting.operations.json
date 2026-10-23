@@ -218,6 +218,71 @@
           "body": true
         }
       ]
+    },
+    "list_entries_by_dimension": {
+      "method": "GET",
+      "path": "/accounts/{accountID}/entries/by-dimension",
+      "call": "ListEntriesByDimension",
+      "action": "accounting.entry.list_by_dimension",
+      "title": "List entries by dimension",
+      "description": "Read one account's ledger narrowed to the entries whose dimensions carry the named key with exactly the given value, in the same order as the full listing.",
+      "args": [
+        {
+          "from": "path",
+          "as": "accountID",
+          "description": "The account whose ledger to read."
+        },
+        {
+          "from": "query",
+          "as": "key",
+          "description": "The dimension key to narrow by."
+        },
+        {
+          "from": "query",
+          "as": "value",
+          "description": "The value that key must carry."
+        },
+        {
+          "from": "query",
+          "as": "limit",
+          "description": "Cap the entries returned. Zero or absent means the default page."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "dimension_balance": {
+      "method": "GET",
+      "path": "/accounts/{accountID}/balance/by-dimension",
+      "call": "DimensionBalance",
+      "action": "accounting.account.balance_by_dimension",
+      "title": "Read balance by dimension",
+      "description": "Fold one account's debits minus credits over only the entries whose dimensions carry the named key with exactly the given value. The balances of an account under every value of one key sum to its whole balance only when every entry carries that key.",
+      "args": [
+        {
+          "from": "path",
+          "as": "accountID",
+          "description": "The account whose balance to read."
+        },
+        {
+          "from": "query",
+          "as": "key",
+          "description": "The dimension key to narrow by."
+        },
+        {
+          "from": "query",
+          "as": "value",
+          "description": "The value that key must carry."
+        }
+      ],
+      "returns": [
+        {
+          "as": "balance"
+        }
+      ]
     }
   },
   "errors": {

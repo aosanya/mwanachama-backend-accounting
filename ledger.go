@@ -62,5 +62,5 @@ func checkEntryBeyondSpec(e Entry) error {
 			return fmt.Errorf("%w: due_at %q is not an RFC 3339 instant", ErrInvalid, e.DueAt)
 		}
 	}
-	return nil
+	return checkDimensions(e.Dimensions)
 }
