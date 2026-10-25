@@ -195,6 +195,7 @@ func (m *ledgerStore) Post(ctx context.Context, e Entry) (Entry, error) {
 			if reversals > 0 {
 				return ErrAlreadyReversed
 			}
+			e.Dimensions = original.Dimensions
 		}
 
 		e.ID = newID()

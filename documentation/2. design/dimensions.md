@@ -50,6 +50,15 @@ Each narrows by one key and one exact value. An unknown account is
 of one account under every value of one key sum to its whole balance only when
 every entry carries that key.
 
+## A reversal keeps its original's dimensions
+
+A reversal (an entry naming `reverses_entry_id`) is stored with its original's
+`dimensions`, whatever the request names (member app decision 426, W58). Before
+this a reversal carried none unless its caller repeated them, so
+`DimensionBalance` kept counting a reversed amount under the original's values.
+Taking the original's set rather than refusing a mismatch keeps the reversal
+a mirror of the original on every read that narrows by a dimension.
+
 ## What this does not do
 
 - **It filters in Go, not in SQL.** Both reads fold the account's whole ledger
