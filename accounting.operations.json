@@ -107,7 +107,7 @@
       "action": "accounting.entry.post",
       "status": 201,
       "title": "Post entry",
-      "description": "Append one journal entry, debiting one account and crediting another for the same amount. There is no update and no delete: a mistake is corrected by posting a new entry that names the original in reverses_entry_id, and an entry may be reversed at most once.",
+      "description": "Append one journal entry, debiting one account and crediting another for the same amount. There is no update and no delete: a mistake is corrected by posting a new entry that names the original in reverses_entry_id, and an entry may be reversed at most once. A reversal keeps its original's dimensions. A payment may name the charge it pays in settles_entry_id, which must be an entry already in the ledger.",
       "args": [
         {
           "from": "body",
@@ -200,7 +200,7 @@
       "call": "Overdue",
       "action": "accounting.entry.overdue",
       "title": "List overdue entries",
-      "description": "Read one account's entries whose due_at has passed as of an instant, each with the whole days it is overdue, oldest due first. An entry with no due_at is never listed, nor is an entry that has been reversed or one that reverses another.",
+      "description": "Read one account's entries whose due_at has passed as of an instant, each with the whole days it is overdue, oldest due first. An entry with no due_at is never listed, nor is an entry that has been reversed or one that reverses another. Unreversed entries naming a charge in settles_entry_id are netted against it: each item carries what is still outstanding, and a charge paid in full is not listed.",
       "args": [
         {
           "from": "path",

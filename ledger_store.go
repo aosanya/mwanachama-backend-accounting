@@ -198,6 +198,14 @@ func (m *ledgerStore) Post(ctx context.Context, e Entry) (Entry, error) {
 			e.Dimensions = original.Dimensions
 		}
 
+		if e.SettlesEntryID != "" {
+			var settled Entry
+			if err := m.take(m.on(ctx, tx, roleEntry).Where("id = ?", e.SettlesEntryID),
+				roleEntry, &settled, ErrNotFound); err != nil {
+				return err
+			}
+		}
+
 		e.ID = newID()
 		e.PostedAt = m.now()
 

@@ -175,6 +175,12 @@
           "type": "string",
           "description": "The entry this one corrects, or empty. The original is never touched, and an entry may be reversed at most once — a second reversal would drift the ledger off zero-sum.",
           "immutable": true
+        },
+        {
+          "name": "settles_entry_id",
+          "type": "string",
+          "description": "The charge entry this one pays, or empty. It must name an entry already in the ledger. The overdue read nets every unreversed entry settling a charge against that charge's amount, so a paid charge stops reading as overdue and a part-paid one reads with what is still outstanding.",
+          "immutable": true
         }
       ],
       "indexes": [
@@ -197,6 +203,13 @@
           "description": "Answers 'has this entry already been reversed' without scanning the ledger, which is the check that keeps a correction from being applied twice.",
           "fields": [
             "reverses_entry_id"
+          ]
+        },
+        {
+          "name": "settles",
+          "description": "Finds the entries paying a charge without scanning the ledger, which is what the overdue read nets against.",
+          "fields": [
+            "settles_entry_id"
           ]
         }
       ]

@@ -25,6 +25,7 @@ type Entry struct {
 	Narration       string            `json:"narration,omitempty"`
 	Dimensions      map[string]string `json:"dimensions,omitempty"`
 	ReversesEntryID string            `json:"reverses_entry_id,omitempty"`
+	SettlesEntryID  string            `json:"settles_entry_id,omitempty"`
 }
 
 type Budget struct {
@@ -47,6 +48,7 @@ type Variance struct {
 
 type OverdueEntry struct {
 	Entry
+	Outstanding int64 `json:"outstanding"`
 	DaysOverdue int64 `json:"days_overdue"`
 }
 

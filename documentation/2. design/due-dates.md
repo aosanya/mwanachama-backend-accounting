@@ -24,14 +24,29 @@ reversal mirrors it and would otherwise list twice. A reversal always touches
 the same two accounts as its original, so the account's own entries are enough
 to find both.
 
+## A payment settles its charge
+
+An entry may name the charge it pays in `settles_entry_id` (member app
+decision 425, W58). `Post` refuses one naming no entry in the ledger with
+`ErrNotFound`, the same answer an unknown `reverses_entry_id` gets. The field
+is optional and immutable like every other on an entry.
+
+The overdue read nets payments against their charges: for each due entry it
+sums the amounts of every entry whose `settles_entry_id` names it, leaving out
+a payment that was reversed and a reversal itself, and subtracts that from the
+charge's amount. Each item carries what is left as `outstanding`, beside the
+charge's own `amount`; a charge whose outstanding is zero or less is not
+overdue and is left out. Payments are found by their own index (`settles`),
+not by the account's ledger, so a payment posted between two other accounts
+still settles the charge it names.
+
+Not decided, so not enforced: that a payment touches the charge's accounts,
+that it does not exceed what is outstanding, that it is not itself a charge
+with a due date, or that a reversal may not name a charge to settle. Each is a
+product call.
+
 ## What this does not do
 
-- **It does not net payments against charges.** An entry is one two-account
-  pair with no link from a payment to the charge it settles, so a charge that
-  was paid in full still lists as overdue until it is reversed. Matching a
-  payment to a charge needs either a settles-entry reference on an entry or an
-  invoice object with a settled amount; which is a product decision, so it is
-  left open.
 - **Ageing buckets** (0–30, 31–60, …) are the caller's: the read gives the
   days, and the buckets differ by domain.
 - It reads one account. A read across a whole category would iterate the
