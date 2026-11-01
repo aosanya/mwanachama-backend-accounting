@@ -21,7 +21,7 @@ this repo's declared route table under
 `/instances/{instanceID}/accounting`, resolving one `LedgerRepository` per
 registered instance against that instance's own table set — so the ledger
 is multi-tenant there, not org-wide-singleton.
-[mwanachama-backend-api-gateway](../mwanachama-backend-api-gateway) also
+mwanachama-backend-api-gateway also
 imports this repo (W9) and keeps an `internal/store/accountingadapter`
 holding Mwanachama's contribution vocabulary in Go; that wiring is the
 older, single-tenant path and is not what current work targets.

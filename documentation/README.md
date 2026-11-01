@@ -30,7 +30,7 @@ The working consumer is
 [mwanachama-wakala-api](../../mwanachama-wakala-api), run locally, which
 mounts the declared routes once per registered instance against that
 instance's own table set.
-[mwanachama-backend-api-gateway](../../mwanachama-backend-api-gateway) also
+mwanachama-backend-api-gateway also
 imports this repo and is the older single-tenant path; see
 [CLAUDE.md](../CLAUDE.md) for what that means for where domain vocabulary
 lives. The merchandise/stock ledger stays a separate system in the gateway;

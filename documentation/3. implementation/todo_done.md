@@ -29,7 +29,7 @@
 
 `mwanachama-backend-accounting` — Go library, module
 `github.com/aosanya/mwanachama-backend-accounting`. Will be consumed by
-[mwanachama-backend-api-gateway](../../../mwanachama-backend-api-gateway)
+mwanachama-backend-api-gateway
 once W9 lands.
 
 ### Why this repo exists
