@@ -46,14 +46,23 @@ type Variance struct {
 	Difference  int64  `json:"difference"`
 }
 
+type AgeBasis string
+
+const (
+	AgeFromDue    AgeBasis = "due"
+	AgeFromRaised AgeBasis = "raised"
+)
+
 type OverdueEntry struct {
 	Entry
 	Outstanding int64 `json:"outstanding"`
 	DaysOverdue int64 `json:"days_overdue"`
+	AgeDays     int64 `json:"age_days"`
 }
 
 type Overdue struct {
 	AccountID string         `json:"account_id"`
 	AsOf      string         `json:"as_of"`
+	AgeFrom   AgeBasis       `json:"age_from"`
 	Items     []OverdueEntry `json:"items"`
 }

@@ -18,6 +18,12 @@ type (
 	Variance        = models.Variance
 	OverdueEntry    = models.OverdueEntry
 	Overdue         = models.Overdue
+	AgeBasis        = models.AgeBasis
+)
+
+const (
+	AgeFromDue    = models.AgeFromDue
+	AgeFromRaised = models.AgeFromRaised
 )
 
 const (

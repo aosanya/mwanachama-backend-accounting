@@ -29,7 +29,7 @@ func TestOverdueAgesFromTheDueDateNotThePostingDate(t *testing.T) {
 	postDue(t, r, holder, pool, 300, "2026-06-01T00:00:00Z")
 	postDue(t, r, holder, pool, 400, "")
 
-	got, err := r.Overdue(ctx, holder.ID, "2026-03-11T12:00:00Z")
+	got, err := r.Overdue(ctx, holder.ID, "2026-03-11T12:00:00Z", "")
 	if err != nil {
 		t.Fatalf("Overdue: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestOverdueLeavesOutAReversedEntryAndItsReversal(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("reverse: %v", err)
 	}
-	got, err := r.Overdue(ctx, holder.ID, "2026-02-01T00:00:00Z")
+	got, err := r.Overdue(ctx, holder.ID, "2026-02-01T00:00:00Z", "")
 	if err != nil {
 		t.Fatalf("Overdue: %v", err)
 	}
@@ -76,14 +76,14 @@ func TestADueDateThatIsNotAnInstantIsRefused(t *testing.T) {
 	if !errors.Is(err, accounting.ErrInvalid) {
 		t.Fatalf("err = %v, want ErrInvalid", err)
 	}
-	if _, err := r.Overdue(ctx, holder.ID, "yesterday"); !errors.Is(err, accounting.ErrInvalid) {
+	if _, err := r.Overdue(ctx, holder.ID, "yesterday", ""); !errors.Is(err, accounting.ErrInvalid) {
 		t.Fatalf("as_of err = %v, want ErrInvalid", err)
 	}
 }
 
 func TestOverdueOnAnUnknownAccountIsNotFound(t *testing.T) {
 	r, ctx := newLedger(t)
-	if _, err := r.Overdue(ctx, "missing", ""); !errors.Is(err, accounting.ErrNotFound) {
+	if _, err := r.Overdue(ctx, "missing", "", ""); !errors.Is(err, accounting.ErrNotFound) {
 		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
 }

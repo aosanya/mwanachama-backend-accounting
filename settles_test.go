@@ -30,7 +30,7 @@ func TestAPaidChargeNoLongerReadsAsOverdue(t *testing.T) {
 		t.Fatalf("payment = %+v, want it to name the charge", p)
 	}
 
-	got, err := r.Overdue(ctx, holder.ID, "2026-02-01T00:00:00Z")
+	got, err := r.Overdue(ctx, holder.ID, "2026-02-01T00:00:00Z", "")
 	if err != nil {
 		t.Fatalf("Overdue: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestAPartPaidChargeReadsWithWhatIsStillOutstanding(t *testing.T) {
 	pay(t, r, pool, holder, 30, charge.ID)
 	pay(t, r, pool, holder, 20, charge.ID)
 
-	got, err := r.Overdue(ctx, holder.ID, "2026-02-01T00:00:00Z")
+	got, err := r.Overdue(ctx, holder.ID, "2026-02-01T00:00:00Z", "")
 	if err != nil {
 		t.Fatalf("Overdue: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestAnUnpaidChargeReadsOutstandingInFull(t *testing.T) {
 	pool := openPool(t, r, "p1")
 
 	postDue(t, r, holder, pool, 100, "2026-01-01T00:00:00Z")
-	got, err := r.Overdue(ctx, holder.ID, "2026-02-01T00:00:00Z")
+	got, err := r.Overdue(ctx, holder.ID, "2026-02-01T00:00:00Z", "")
 	if err != nil {
 		t.Fatalf("Overdue: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestAReversedPaymentNoLongerSettlesItsCharge(t *testing.T) {
 		t.Fatalf("reverse payment: %v", err)
 	}
 
-	got, err := r.Overdue(ctx, holder.ID, "2026-02-01T00:00:00Z")
+	got, err := r.Overdue(ctx, holder.ID, "2026-02-01T00:00:00Z", "")
 	if err != nil {
 		t.Fatalf("Overdue: %v", err)
 	}

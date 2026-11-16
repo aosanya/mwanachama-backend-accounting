@@ -200,7 +200,7 @@
       "call": "Overdue",
       "action": "accounting.entry.overdue",
       "title": "List overdue entries",
-      "description": "Read one account's entries whose due_at has passed as of an instant, each with the whole days it is overdue, oldest due first. An entry with no due_at is never listed, nor is an entry that has been reversed or one that reverses another. Unreversed entries naming a charge in settles_entry_id are netted against it: each item carries what is still outstanding, and a charge paid in full is not listed.",
+      "description": "Read one account's entries whose due_at has passed as of an instant, each with the whole days it is overdue, oldest first by age_days, which is the same as days_overdue unless age_from is \"raised\". An entry with no due_at is never listed, nor is an entry that has been reversed or one that reverses another. Unreversed entries naming a charge in settles_entry_id are netted against it: each item carries what is still outstanding, and a charge paid in full is not listed.",
       "args": [
         {
           "from": "path",
@@ -211,6 +211,11 @@
           "from": "query",
           "as": "as_of",
           "description": "The instant to age against, as an RFC 3339 instant. Absent means now."
+        },
+        {
+          "from": "query",
+          "as": "age_from",
+          "description": "Where each item's age_days starts counting and what the list is ordered on: \"due\" (the default) from the entry's due_at, \"raised\" from the day the entry was posted. Which entries are listed does not change. Any other value is refused."
         }
       ],
       "returns": [

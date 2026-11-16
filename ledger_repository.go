@@ -23,7 +23,7 @@ type LedgerRepository interface {
 
 	Variance(ctx context.Context, accountID, periodStart, periodEnd string) (Variance, error)
 
-	Overdue(ctx context.Context, accountID, asOf string) (Overdue, error)
+	Overdue(ctx context.Context, accountID, asOf, ageFrom string) (Overdue, error)
 
 	ListEntriesByDimension(ctx context.Context, accountID, key, value string, limit int) ([]Entry, error)
 

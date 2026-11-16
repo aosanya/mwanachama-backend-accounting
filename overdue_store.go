@@ -45,7 +45,25 @@ func paidAgainst(settling []Entry, reversed map[string]bool) map[string]int64 {
 	return out
 }
 
-func overdueAsOf(entries []Entry, reversed map[string]bool, paid map[string]int64, at time.Time) []OverdueEntry {
+func ageBasis(raw string) (AgeBasis, error) {
+	switch AgeBasis(strings.TrimSpace(raw)) {
+	case "", AgeFromDue:
+		return AgeFromDue, nil
+	case AgeFromRaised:
+		return AgeFromRaised, nil
+	}
+	return "", fmt.Errorf("%w: age_from %q is not %q or %q", ErrInvalid, raw, AgeFromDue, AgeFromRaised)
+}
+
+func ageStart(e Entry, due time.Time, basis AgeBasis) (time.Time, bool) {
+	if basis != AgeFromRaised {
+		return due, true
+	}
+	raised, err := time.Parse(time.RFC3339Nano, e.PostedAt)
+	return raised, err == nil
+}
+
+func overdueAsOf(entries []Entry, reversed map[string]bool, paid map[string]int64, at time.Time, basis AgeBasis) []OverdueEntry {
 	out := []OverdueEntry{}
 	for _, e := range entries {
 		if e.DueAt == "" || e.ReversesEntryID != "" || reversed[e.ID] {
@@ -59,15 +77,28 @@ func overdueAsOf(entries []Entry, reversed map[string]bool, paid map[string]int6
 		if outstanding <= 0 {
 			continue
 		}
-		out = append(out, OverdueEntry{Entry: e, Outstanding: outstanding, DaysOverdue: int64(at.Sub(due) / day)})
+		start, ok := ageStart(e, due, basis)
+		if !ok {
+			continue
+		}
+		out = append(out, OverdueEntry{
+			Entry:       e,
+			Outstanding: outstanding,
+			DaysOverdue: int64(at.Sub(due) / day),
+			AgeDays:     int64(at.Sub(start) / day),
+		})
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		return out[i].DaysOverdue > out[j].DaysOverdue
+		return out[i].AgeDays > out[j].AgeDays
 	})
 	return out
 }
 
-func (m *ledgerStore) Overdue(ctx context.Context, accountID, asOf string) (Overdue, error) {
+func (m *ledgerStore) Overdue(ctx context.Context, accountID, asOf, ageFrom string) (Overdue, error) {
+	basis, err := ageBasis(ageFrom)
+	if err != nil {
+		return Overdue{}, err
+	}
 	at, raw, err := m.asOf(asOf)
 	if err != nil {
 		return Overdue{}, err
@@ -86,7 +117,8 @@ func (m *ledgerStore) Overdue(ctx context.Context, accountID, asOf string) (Over
 	return Overdue{
 		AccountID: accountID,
 		AsOf:      raw,
-		Items:     overdueAsOf(entries, reversedIDs(entries), paid, at),
+		AgeFrom:   basis,
+		Items:     overdueAsOf(entries, reversedIDs(entries), paid, at, basis),
 	}, nil
 }
 
