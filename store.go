@@ -11,6 +11,9 @@ const (
 	roleAccount = "account"
 	roleEntry   = "entry"
 	roleBudget  = "budget"
+
+	roleMilestone   = "milestone"
+	roleCertificate = "certificate"
 )
 
 type store = specstore.Store

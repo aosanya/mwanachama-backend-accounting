@@ -29,6 +29,18 @@
       "name": "term_budget",
       "table": "term_budgets",
       "description": "What a fee account or a fund is expected to hold over one term, read against what the bursar actually posted."
+    },
+    {
+      "role": "milestone",
+      "name": "building_stage",
+      "table": "building_stages",
+      "description": "One stage of a building contract that a term's budget pays for."
+    },
+    {
+      "role": "certificate",
+      "name": "stage_certificate",
+      "table": "stage_certificates",
+      "description": "A payment certificate for a building stage, with the retention it withheld."
     }
   ]
 }

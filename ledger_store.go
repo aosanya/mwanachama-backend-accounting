@@ -23,6 +23,9 @@ func NewLedgerRepository(db *gorm.DB, s *spec.Spec) (LedgerRepository, error) {
 		roleAccount: models.Account{},
 		roleEntry:   models.Entry{},
 		roleBudget:  models.Budget{},
+
+		roleMilestone:   models.Milestone{},
+		roleCertificate: models.Certificate{},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("NewLedgerRepository: %w", err)
@@ -160,6 +163,19 @@ func (m *ledgerStore) CloseAccount(ctx context.Context, id string) (Account, err
 }
 
 func (m *ledgerStore) Post(ctx context.Context, e Entry) (Entry, error) {
+	var out Entry
+	err := m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		posted, err := m.postIn(ctx, tx, e)
+		out = posted
+		return err
+	})
+	if err != nil {
+		return Entry{}, err
+	}
+	return out, nil
+}
+
+func (m *ledgerStore) postIn(ctx context.Context, tx *gorm.DB, e Entry) (Entry, error) {
 	if err := m.checks(roleEntry, e); err != nil {
 		return Entry{}, err
 	}
@@ -167,62 +183,54 @@ func (m *ledgerStore) Post(ctx context.Context, e Entry) (Entry, error) {
 		return Entry{}, err
 	}
 
-	var out Entry
-	err := m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		debit, err := m.accountByID(ctx, tx, e.DebitAccountID)
-		if err != nil {
-			return err
-		}
-		credit, err := m.accountByID(ctx, tx, e.CreditAccountID)
-		if err != nil {
-			return err
-		}
-		if debit.ClosedAt != "" || credit.ClosedAt != "" {
-			return ErrClosed
-		}
-
-		if e.ReversesEntryID != "" {
-			var original Entry
-			if err := m.take(m.on(ctx, tx, roleEntry).Where("id = ?", e.ReversesEntryID),
-				roleEntry, &original, ErrNotFound); err != nil {
-				return err
-			}
-			var reversals int64
-			if err := m.on(ctx, tx, roleEntry).
-				Where("reverses_entry_id = ?", e.ReversesEntryID).Count(&reversals).Error; err != nil {
-				return err
-			}
-			if reversals > 0 {
-				return ErrAlreadyReversed
-			}
-			e.Dimensions = original.Dimensions
-		}
-
-		if e.SettlesEntryID != "" {
-			var settled Entry
-			if err := m.take(m.on(ctx, tx, roleEntry).Where("id = ?", e.SettlesEntryID),
-				roleEntry, &settled, ErrNotFound); err != nil {
-				return err
-			}
-		}
-
-		e.ID = newID()
-		e.PostedAt = m.now()
-
-		row, err := encode(m.st.Object(roleEntry), e)
-		if err != nil {
-			return err
-		}
-		if err := m.on(ctx, tx, roleEntry).Create(row).Error; err != nil {
-			return err
-		}
-		out = e
-		return nil
-	})
+	debit, err := m.accountByID(ctx, tx, e.DebitAccountID)
 	if err != nil {
 		return Entry{}, err
 	}
-	return out, nil
+	credit, err := m.accountByID(ctx, tx, e.CreditAccountID)
+	if err != nil {
+		return Entry{}, err
+	}
+	if debit.ClosedAt != "" || credit.ClosedAt != "" {
+		return Entry{}, ErrClosed
+	}
+
+	if e.ReversesEntryID != "" {
+		var original Entry
+		if err := m.take(m.on(ctx, tx, roleEntry).Where("id = ?", e.ReversesEntryID),
+			roleEntry, &original, ErrNotFound); err != nil {
+			return Entry{}, err
+		}
+		var reversals int64
+		if err := m.on(ctx, tx, roleEntry).
+			Where("reverses_entry_id = ?", e.ReversesEntryID).Count(&reversals).Error; err != nil {
+			return Entry{}, err
+		}
+		if reversals > 0 {
+			return Entry{}, ErrAlreadyReversed
+		}
+		e.Dimensions = original.Dimensions
+	}
+
+	if e.SettlesEntryID != "" {
+		var settled Entry
+		if err := m.take(m.on(ctx, tx, roleEntry).Where("id = ?", e.SettlesEntryID),
+			roleEntry, &settled, ErrNotFound); err != nil {
+			return Entry{}, err
+		}
+	}
+
+	e.ID = newID()
+	e.PostedAt = m.now()
+
+	row, err := encode(m.st.Object(roleEntry), e)
+	if err != nil {
+		return Entry{}, err
+	}
+	if err := m.on(ctx, tx, roleEntry).Create(row).Error; err != nil {
+		return Entry{}, err
+	}
+	return e, nil
 }
 
 func (m *ledgerStore) entriesTouching(ctx context.Context, tx *gorm.DB, accountID string, limit int) ([]Entry, error) {

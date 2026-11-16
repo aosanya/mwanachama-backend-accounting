@@ -18,12 +18,15 @@ var operations = sync.OnceValues(func() (*dispatch.Spec, error) {
 })
 
 var sentinels = map[string]error{
-	"ErrNotFound":        accounting.ErrNotFound,
-	"ErrInvalid":         accounting.ErrInvalid,
-	"ErrClosed":          accounting.ErrClosed,
-	"ErrNonZeroBalance":  accounting.ErrNonZeroBalance,
-	"ErrAlreadyReversed": accounting.ErrAlreadyReversed,
-	"ErrCodeTaken":       accounting.ErrCodeTaken,
+	"ErrNotFound":          accounting.ErrNotFound,
+	"ErrInvalid":           accounting.ErrInvalid,
+	"ErrClosed":            accounting.ErrClosed,
+	"ErrNonZeroBalance":    accounting.ErrNonZeroBalance,
+	"ErrAlreadyReversed":   accounting.ErrAlreadyReversed,
+	"ErrCodeTaken":         accounting.ErrCodeTaken,
+	"ErrOverCertified":     accounting.ErrOverCertified,
+	"ErrRetentionHeld":     accounting.ErrRetentionHeld,
+	"ErrRetentionReleased": accounting.ErrRetentionReleased,
 }
 
 type Mount struct {

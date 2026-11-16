@@ -194,6 +194,73 @@
         }
       ]
     },
+    "add_milestone": {
+      "method": "POST",
+      "path": "/milestones",
+      "call": "AddMilestone",
+      "action": "accounting.milestone.create",
+      "status": 201,
+      "title": "Add milestone",
+      "description": "Record one stage of a contract against the account its spending is booked to, with what it is worth and when it is planned to be reached. It starts planned and is paid only through payment certificates.",
+      "args": [
+        { "from": "body", "whole": true }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "list_milestones": {
+      "method": "GET",
+      "path": "/accounts/{accountID}/milestones",
+      "call": "ListMilestones",
+      "action": "accounting.milestone.list",
+      "title": "List milestones",
+      "description": "List the milestones planned against one account, oldest first, each with the amount certified so far.",
+      "args": [
+        { "from": "path", "as": "accountID", "description": "The account whose milestones to list." },
+        { "from": "query", "as": "limit", "description": "Cap the milestones returned. Zero or absent means the default page." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "certify_payment": {
+      "method": "POST",
+      "path": "/milestones/{milestoneID}/certificates",
+      "call": "CertifyPayment",
+      "action": "accounting.certificate.create",
+      "status": 201,
+      "title": "Certify payment",
+      "description": "Issue a payment certificate for all or part of a milestone. The amount less the retention is posted from the milestone's account to the payee, and the retention, a share of the amount in hundredths of a percent, is posted to the retention account until it is released. Refused when the certificates would add up to more than the milestone is worth.",
+      "args": [
+        { "from": "body", "whole": true },
+        { "from": "path", "as": "milestoneID", "into": "MilestoneID", "description": "The milestone certified. The address decides, not the body." },
+        { "from": "caller", "as": "certified_by", "into": "CertifiedBy", "description": "Who certified the work, supplied by the mount. Never read from the request." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "list_certificates": {
+      "method": "GET",
+      "path": "/milestones/{milestoneID}/certificates",
+      "call": "ListCertificates",
+      "action": "accounting.certificate.list",
+      "title": "List certificates",
+      "description": "List the payment certificates issued for one milestone, oldest first, each with its retention and whether it has been released.",
+      "args": [
+        { "from": "path", "as": "milestoneID", "description": "The milestone whose certificates to list." },
+        { "from": "query", "as": "limit", "description": "Cap the certificates returned. Zero or absent means the default page." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "release_retention": {
+      "method": "POST",
+      "path": "/certificates/{certificateID}/release",
+      "call": "ReleaseRetention",
+      "action": "accounting.certificate.release_retention",
+      "title": "Release retention",
+      "description": "Pay out the retention a certificate withheld, from the retention account to the payee. Refused before the certificate's release date, when nothing was withheld, and when it was already released.",
+      "args": [
+        { "from": "path", "as": "certificateID", "description": "The certificate whose retention to release." },
+        { "from": "caller", "as": "released_by", "description": "Who released the retention, supplied by the mount. Never read from the request." }
+      ],
+      "returns": [{ "body": true }]
+    },
     "overdue_entries": {
       "method": "GET",
       "path": "/accounts/{accountID}/overdue",
@@ -296,6 +363,9 @@
     "ErrClosed": 409,
     "ErrNonZeroBalance": 409,
     "ErrAlreadyReversed": 409,
-    "ErrCodeTaken": 409
+    "ErrCodeTaken": 409,
+    "ErrOverCertified": 409,
+    "ErrRetentionHeld": 409,
+    "ErrRetentionReleased": 409
   }
 }

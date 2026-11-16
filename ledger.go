@@ -18,6 +18,8 @@ type (
 	Variance        = models.Variance
 	OverdueEntry    = models.OverdueEntry
 	Overdue         = models.Overdue
+	Milestone       = models.Milestone
+	Certificate     = models.Certificate
 	AgeBasis        = models.AgeBasis
 )
 

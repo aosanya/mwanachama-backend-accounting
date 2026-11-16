@@ -13,3 +13,9 @@ var ErrNonZeroBalance = errors.New("accounting: an account holding a balance can
 var ErrAlreadyReversed = errors.New("accounting: that entry has already been reversed")
 
 var ErrCodeTaken = errors.New("accounting: another account already carries that code")
+
+var ErrOverCertified = errors.New("accounting: the certificates would exceed the milestone's amount")
+
+var ErrRetentionHeld = errors.New("accounting: the retention cannot be released before its release date")
+
+var ErrRetentionReleased = errors.New("accounting: the retention has already been released")

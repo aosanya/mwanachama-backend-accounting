@@ -20,6 +20,18 @@
       "name": "budget",
       "table": "budgets",
       "description": "What a basket or an account is expected to collect or spend over one period, read against what was actually posted."
+    },
+    {
+      "role": "milestone",
+      "name": "milestone",
+      "table": "milestones",
+      "description": "A stage of a contract that a ward's budget line pays for."
+    },
+    {
+      "role": "certificate",
+      "name": "certificate",
+      "table": "certificates",
+      "description": "A payment certificate for a milestone, with the retention it withheld."
     }
   ]
 }

@@ -55,11 +55,16 @@ func TestRoutesAnswerTheSameAddressesAsBeforeTheConversion(t *testing.T) {
 		"GET /accounts/{accountID}/balance/by-dimension",
 		"GET /accounts/{accountID}/entries",
 		"GET /accounts/{accountID}/entries/by-dimension",
+		"GET /accounts/{accountID}/milestones",
 		"GET /accounts/{accountID}/overdue",
 		"GET /accounts/{accountID}/variance",
+		"GET /milestones/{milestoneID}/certificates",
 		"POST /accounts",
 		"POST /accounts/{accountID}/close",
+		"POST /certificates/{certificateID}/release",
 		"POST /entries",
+		"POST /milestones",
+		"POST /milestones/{milestoneID}/certificates",
 		"PUT /budgets",
 	}
 	got := patterns(routes.Routes(newRepo(t)), "")

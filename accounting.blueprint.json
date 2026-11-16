@@ -268,6 +268,189 @@
           "unique": true
         }
       ]
+    },
+    {
+      "role": "milestone",
+      "description": "One stage of a contract that a budget line pays for, such as the foundations of a school extension. Planned against the account that carries the spending, it is paid only through certificates, and it reads as certified once its certificates add up to its amount.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "account_id",
+          "type": "string",
+          "description": "The account the spending is booked to when a certificate is issued.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "contract_id",
+          "type": "string",
+          "description": "The contract the milestone belongs to. An opaque id the caller supplies and interprets; this module only groups milestones by it.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "description": "What the milestone delivers, in the caller's words.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "amount",
+          "type": "int",
+          "description": "What the milestone is worth in total, in the smallest unit, always positive.",
+          "immutable": true
+        },
+        {
+          "name": "due_at",
+          "type": "timestamp",
+          "description": "When the milestone is planned to be reached, as an RFC 3339 instant.",
+          "immutable": true
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "description": "Where the milestone stands. Written by the store: planned until the first certificate, part_certified while certificates cover less than the amount, certified once they cover all of it.",
+          "values": [
+            "planned",
+            "part_certified",
+            "certified"
+          ]
+        },
+        {
+          "name": "certified_amount",
+          "type": "int",
+          "description": "The sum of the certificates issued against the milestone. Written by the store, never by a caller."
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "description": "When the milestone was recorded. Written by the store, never by a caller.",
+          "immutable": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "account",
+          "description": "Lists one account's milestones.",
+          "fields": [
+            "account_id"
+          ]
+        },
+        {
+          "name": "contract",
+          "description": "Lists one contract's milestones.",
+          "fields": [
+            "contract_id"
+          ]
+        }
+      ]
+    },
+    {
+      "role": "certificate",
+      "description": "A payment certificate: a named person confirming that a milestone's work, or part of it, is done and payable. Issuing one posts the net payment and the retention to the ledger. Append-only apart from the release of its retention.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "milestone_id",
+          "type": "string",
+          "description": "The milestone being certified.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "payee_account_id",
+          "type": "string",
+          "description": "The account credited with the net payment, and later with the released retention.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "retention_account_id",
+          "type": "string",
+          "description": "The account that holds the retention until it is released.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "amount",
+          "type": "int",
+          "description": "The gross amount certified, before retention, always positive.",
+          "immutable": true
+        },
+        {
+          "name": "retention_bps",
+          "type": "int",
+          "description": "The share of the gross amount withheld, in hundredths of a percent, from 0 to 5000.",
+          "immutable": true
+        },
+        {
+          "name": "retention_amount",
+          "type": "int",
+          "description": "What was withheld, rounded down. Written by the store.",
+          "immutable": true
+        },
+        {
+          "name": "payment_entry_id",
+          "type": "string",
+          "description": "The ledger entry paying the amount less the retention. Written by the store.",
+          "immutable": true
+        },
+        {
+          "name": "retention_entry_id",
+          "type": "string",
+          "description": "The ledger entry setting the retention aside, empty when nothing was withheld. Written by the store.",
+          "immutable": true
+        },
+        {
+          "name": "certified_by",
+          "type": "string",
+          "description": "Who certified the work, never only a role.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "certified_at",
+          "type": "timestamp",
+          "description": "When the certificate was issued. Written by the store.",
+          "immutable": true
+        },
+        {
+          "name": "release_due_at",
+          "type": "timestamp",
+          "description": "The earliest instant the retention may be released, as an RFC 3339 instant. Absent when nothing was withheld.",
+          "immutable": true
+        },
+        {
+          "name": "released_at",
+          "type": "timestamp",
+          "description": "When the retention was paid out. Empty while it is still held."
+        },
+        {
+          "name": "release_entry_id",
+          "type": "string",
+          "description": "The ledger entry paying the retention out. Empty while it is still held."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "milestone",
+          "description": "Lists the certificates of one milestone.",
+          "fields": [
+            "milestone_id"
+          ]
+        }
+      ]
     }
   ]
 }
