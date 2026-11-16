@@ -304,7 +304,9 @@ func TestPostRefusesASecondReversalOfTheSameEntry(t *testing.T) {
 		t.Fatalf("balance after one reversal = %d, want 0", balance)
 	}
 
-	if _, err := r.Post(ctx, reversal); !errors.Is(err, accounting.ErrAlreadyReversed) {
+	secondReversal := reversal
+	secondReversal.DocumentID = "doc-2"
+	if _, err := r.Post(ctx, secondReversal); !errors.Is(err, accounting.ErrAlreadyReversed) {
 		t.Fatalf("want ErrAlreadyReversed for a second reversal of the same entry, got %v", err)
 	}
 

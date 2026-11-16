@@ -195,6 +195,14 @@ func (m *ledgerStore) postIn(ctx context.Context, tx *gorm.DB, e Entry) (Entry, 
 		return Entry{}, ErrClosed
 	}
 
+	replayed, found, err := m.entryOfSameDocumentLine(ctx, tx, e)
+	if err != nil {
+		return Entry{}, err
+	}
+	if found {
+		return replayed, nil
+	}
+
 	if e.ReversesEntryID != "" {
 		var original Entry
 		if err := m.take(m.on(ctx, tx, roleEntry).Where("id = ?", e.ReversesEntryID),
@@ -231,6 +239,21 @@ func (m *ledgerStore) postIn(ctx context.Context, tx *gorm.DB, e Entry) (Entry, 
 		return Entry{}, err
 	}
 	return e, nil
+}
+
+func (m *ledgerStore) entryOfSameDocumentLine(ctx context.Context, tx *gorm.DB, e Entry) (Entry, bool, error) {
+	var found Entry
+	err := m.take(m.on(ctx, tx, roleEntry).Where(
+		"document_kind = ? AND document_id = ? AND debit_account_id = ? AND credit_account_id = ? AND amount = ? AND reverses_entry_id = ? AND settles_entry_id = ?",
+		string(e.DocumentKind), e.DocumentID, e.DebitAccountID, e.CreditAccountID, e.Amount, e.ReversesEntryID, e.SettlesEntryID,
+	).Order("posted_at"), roleEntry, &found, ErrNotFound)
+	if errors.Is(err, ErrNotFound) {
+		return Entry{}, false, nil
+	}
+	if err != nil {
+		return Entry{}, false, err
+	}
+	return found, true, nil
 }
 
 func (m *ledgerStore) entriesTouching(ctx context.Context, tx *gorm.DB, accountID string, limit int) ([]Entry, error) {

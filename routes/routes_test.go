@@ -245,6 +245,7 @@ func TestDoubleReversalOverHTTPAnswersConflict(t *testing.T) {
 	if rec := doJSON(t, m, "POST", "/entries", reversal); rec.Code != http.StatusCreated {
 		t.Fatalf("first reversal: got %d, body %s", rec.Code, rec.Body.String())
 	}
+	reversal.DocumentID = "doc-2"
 	if rec := doJSON(t, m, "POST", "/entries", reversal); rec.Code != http.StatusConflict {
 		t.Fatalf("second reversal of the same entry: got %d, want %d, body %s",
 			rec.Code, http.StatusConflict, rec.Body.String())
