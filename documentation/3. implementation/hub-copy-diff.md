@@ -8,14 +8,14 @@
 scripts/hub-copy-diff.sh [path-to-hub-modules-accounting]
 ```
 
-The default path is `../projects/hub-steward/code/wakala-api/modules/accounting`, relative to this repository's parent folder. The module path and the module's name are read from `go.mod`, so the script carries nothing specific to accounting. The exit code is 1 when the trees differ, 0 when they do not. The script and `scripts/hubdiff` are the ones of `mwanachama-backend-git` (G78) and `mwanachama-backend-shared` (S65).
+The default path is `../projects/hub-steward/code/wakala-api/modules/accounting`, relative to this repository's parent folder. The module path and the module's name are read from `go.mod`, so the script carries nothing specific to accounting. The exit code is 0 when the output holds no line, or only `Only in backend` lines; it is 1 when any line starts with `diff `, `Binary files ` or `Only in hub`. The script and `scripts/hubdiff` are the ones of `mwanachama-backend-git` (G78) and `mwanachama-backend-shared` (S65).
 
 ## What it does
 
 1. Copies the `*.go` and `*.json` files of this repository and of the hub folder into two temporary folders, leaving out `cmd/`, `documentation/`, `scripts/`, `spec/` and `.git/`. The `spec/examples` school domain is a fixture that only this repository has.
 2. Rewrites the hub's imports: `wakalaserver/modules/shared/` becomes `github.com/aosanya/mwanachama-backend-shared/` and `wakalaserver/modules/accounting` becomes `github.com/aosanya/mwanachama-backend-accounting`.
 3. Runs every Go file on both sides through `scripts/hubdiff`, which parses it, drops all comments and prints it with `gofmt`, so comments and layout do not show as differences.
-4. Runs `diff -r backend hub`.
+4. Runs `diff -r backend hub`, prints its output, and sets the exit code by the rule above.
 
 ## Result of 2026-11-16
 
