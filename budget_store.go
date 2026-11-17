@@ -25,14 +25,17 @@ func parsePeriod(start, end string) (time.Time, time.Time, error) {
 	return from, to, nil
 }
 
+func withinPeriod(e Entry, from, to time.Time) bool {
+	at, err := time.Parse(time.RFC3339Nano, orderKey(e))
+	return err == nil && !at.Before(from) && at.Before(to)
+}
+
 func balanceWithin(accountID string, entries []Entry, from, to time.Time) int64 {
 	inside := make([]Entry, 0, len(entries))
 	for _, e := range entries {
-		at, err := time.Parse(time.RFC3339Nano, orderKey(e))
-		if err != nil || at.Before(from) || !at.Before(to) {
-			continue
+		if withinPeriod(e, from, to) {
+			inside = append(inside, e)
 		}
-		inside = append(inside, e)
 	}
 	return balanceOf(accountID, inside)
 }

@@ -405,6 +405,21 @@
           "body": true
         }
       ]
+    },
+    "dimension_totals": {
+      "method": "GET",
+      "path": "/dimension-totals",
+      "call": "DimensionTotals",
+      "action": "accounting.dimension.totals",
+      "title": "Read totals by dimension",
+      "description": "Fold debit minus credit per value of one dimension key, over the entry sides that fall on accounts of the given type, or on every account when no type is given, in which case each entry nets to zero. Entries that do not carry the key are skipped. The period is optional; when given both bounds are required, and only entries whose occurred_at, or posted_at where that is absent, falls inside it count, start inclusive and end exclusive. Totals come sorted by value.",
+      "args": [
+        { "from": "query", "as": "key", "description": "The dimension key to total by." },
+        { "from": "query", "as": "account_type", "description": "Only count entry sides on accounts of this type. Absent means every account." },
+        { "from": "query", "as": "period_start", "description": "The period's first instant, inclusive. Required with period_end." },
+        { "from": "query", "as": "period_end", "description": "The period's end, exclusive. Required with period_start." }
+      ],
+      "returns": [{ "body": true }]
     }
   },
   "errors": {

@@ -58,6 +58,7 @@ func TestRoutesAnswerTheSameAddressesAsBeforeTheConversion(t *testing.T) {
 		"GET /accounts/{accountID}/milestones",
 		"GET /accounts/{accountID}/overdue",
 		"GET /accounts/{accountID}/variance",
+		"GET /dimension-totals",
 		"GET /milestones/{milestoneID}/certificates",
 		"GET /subjects/{subjectID}/figures/{figure}",
 		"POST /accounts",

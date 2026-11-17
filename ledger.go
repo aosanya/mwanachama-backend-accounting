@@ -16,6 +16,8 @@ type (
 	DocumentKind    = models.DocumentKind
 	Budget          = models.Budget
 	Variance        = models.Variance
+	DimensionTotal  = models.DimensionTotal
+	DimensionTotals = models.DimensionTotals
 	OverdueEntry    = models.OverdueEntry
 	Overdue         = models.Overdue
 	Milestone       = models.Milestone

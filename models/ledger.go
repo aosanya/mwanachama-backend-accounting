@@ -46,6 +46,20 @@ type Variance struct {
 	Difference  int64  `json:"difference"`
 }
 
+type DimensionTotal struct {
+	Value   string `json:"value"`
+	Total   int64  `json:"total"`
+	Entries int    `json:"entries"`
+}
+
+type DimensionTotals struct {
+	Key         string           `json:"key"`
+	AccountType string           `json:"account_type,omitempty"`
+	PeriodStart string           `json:"period_start,omitempty"`
+	PeriodEnd   string           `json:"period_end,omitempty"`
+	Totals      []DimensionTotal `json:"totals"`
+}
+
 type AgeBasis string
 
 const (
