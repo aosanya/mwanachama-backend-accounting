@@ -355,6 +355,56 @@
           "as": "balance"
         }
       ]
+    },
+    "append_figure": {
+      "method": "POST",
+      "path": "/figures",
+      "call": "AppendFigure",
+      "action": "accounting.figure.append",
+      "status": 201,
+      "title": "Append figure",
+      "description": "Append one entry to the record of figures: a figure that is not money, kept for one subject on one day with how it was worked out (the function code, the published version and a fingerprint of the inputs) and who caused it. The record sits beside the ledger and holds no money. There is no update and no delete, and a second entry for the same subject, figure and day is refused. The value is decimal text and keeps its digits as written.",
+      "args": [
+        {
+          "from": "body",
+          "whole": true
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "list_figure_history": {
+      "method": "GET",
+      "path": "/subjects/{subjectID}/figures/{figure}",
+      "call": "ListFigureHistory",
+      "action": "accounting.figure.history",
+      "title": "List a figure's history",
+      "description": "Read the history of one figure of one subject, newest day first, each entry with its provenance.",
+      "args": [
+        {
+          "from": "path",
+          "as": "subjectID",
+          "description": "The subject the figure is kept for."
+        },
+        {
+          "from": "path",
+          "as": "figure",
+          "description": "The name of the figure."
+        },
+        {
+          "from": "query",
+          "as": "limit",
+          "description": "Cap the entries returned. Zero or absent means the default page."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
     }
   },
   "errors": {
@@ -366,6 +416,7 @@
     "ErrCodeTaken": 409,
     "ErrOverCertified": 409,
     "ErrRetentionHeld": 409,
-    "ErrRetentionReleased": 409
+    "ErrRetentionReleased": 409,
+    "ErrFigureTaken": 409
   }
 }

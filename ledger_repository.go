@@ -30,4 +30,8 @@ type LedgerRepository interface {
 	ListEntriesByDimension(ctx context.Context, accountID, key, value string, limit int) ([]Entry, error)
 
 	DimensionBalance(ctx context.Context, accountID, key, value string) (int64, error)
+
+	AppendFigure(ctx context.Context, f Figure) (Figure, error)
+
+	ListFigureHistory(ctx context.Context, subjectID, figure string, limit int) ([]Figure, error)
 }

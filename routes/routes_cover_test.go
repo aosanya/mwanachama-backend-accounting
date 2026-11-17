@@ -28,8 +28,8 @@ func muxFor(t *testing.T, rts []routes.Route) *http.ServeMux {
 
 func TestShapeListsEveryDeclaredAddressWithNoHandler(t *testing.T) {
 	shape := routes.Shape()
-	if len(shape) != 17 {
-		t.Fatalf("got %d shaped routes, want 17", len(shape))
+	if len(shape) != 19 {
+		t.Fatalf("got %d shaped routes, want 19", len(shape))
 	}
 	for _, rt := range shape {
 		if rt.Handler != nil {

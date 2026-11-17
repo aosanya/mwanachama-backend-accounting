@@ -19,14 +19,18 @@ type ledgerStore struct {
 }
 
 func NewLedgerRepository(db *gorm.DB, s *spec.Spec) (LedgerRepository, error) {
-	st, err := newStore(db, s, map[string]any{
+	carriers := map[string]any{
 		roleAccount: models.Account{},
 		roleEntry:   models.Entry{},
 		roleBudget:  models.Budget{},
 
 		roleMilestone:   models.Milestone{},
 		roleCertificate: models.Certificate{},
-	})
+	}
+	if _, ok := s.ByRole(roleFigure); ok {
+		carriers[roleFigure] = models.Figure{}
+	}
+	st, err := newStore(db, s, carriers)
 	if err != nil {
 		return nil, fmt.Errorf("NewLedgerRepository: %w", err)
 	}

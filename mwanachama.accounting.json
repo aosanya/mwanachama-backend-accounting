@@ -32,6 +32,12 @@
       "name": "certificate",
       "table": "certificates",
       "description": "A payment certificate for a milestone, with the retention it withheld."
+    },
+    {
+      "role": "figure",
+      "name": "figure_entry",
+      "table": "figure_entries",
+      "description": "One figure that is not money, such as a ratio or a score a calculating step worked out, kept for a member on a day with how it was worked out."
     }
   ]
 }

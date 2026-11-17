@@ -451,6 +451,98 @@
           ]
         }
       ]
+    },
+    {
+      "role": "figure",
+      "description": "One entry in the record of figures: a figure that is not money, such as a ratio or a score, kept for one subject on one day with how it was worked out. Append-only and beside the ledger, which stays money only. There is no update and no delete.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "subject_id",
+          "type": "string",
+          "description": "The subject the figure is kept for, such as a member. An opaque id the caller supplies and interprets; this module never reads it for meaning.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "figure",
+          "type": "string",
+          "description": "The name of the figure, in lower-case letters, digits and underscores starting with a letter, at most 63 characters, such as repayment_ratio. The caller chooses the names.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "on_day",
+          "type": "string",
+          "description": "The day the figure is for, written YYYY-MM-DD and a day that exists. A subject has at most one entry for a figure on a day.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "description": "The figure as decimal text, at most 30 digits, kept exactly as written: 45.20 stays 45.20. Text because a figure is not an amount of minor units.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "function_code",
+          "type": "string",
+          "description": "The code of the function that worked the figure out.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "function_version",
+          "type": "string",
+          "description": "The published version of that function.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "inputs_fingerprint",
+          "type": "string",
+          "description": "A fingerprint of the inputs the function was given, so the same entry can be traced back to the same inputs.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "actor_id",
+          "type": "string",
+          "description": "Who or what caused the entry, never only a role.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "narration",
+          "type": "text",
+          "description": "The sentence the record reads back against this entry.",
+          "immutable": true
+        },
+        {
+          "name": "recorded_at",
+          "type": "timestamp",
+          "description": "When the entry was written. Written by the store, never by a caller.",
+          "immutable": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "identity",
+          "description": "Enforces one entry per subject, figure and day, and backs the history read.",
+          "fields": [
+            "subject_id",
+            "figure",
+            "on_day"
+          ],
+          "unique": true
+        }
+      ]
     }
   ]
 }
