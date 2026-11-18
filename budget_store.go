@@ -106,6 +106,33 @@ func (m *ledgerStore) SetBudget(ctx context.Context, b Budget) (Budget, error) {
 	return out, nil
 }
 
+func (m *ledgerStore) DeleteBudget(ctx context.Context, id string) (Budget, error) {
+	var removed Budget
+	err := m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := m.take(m.on(ctx, tx, roleBudget).Where("id = ?", id), roleBudget, &removed, ErrNotFound); err != nil {
+			return err
+		}
+		from, to, err := parsePeriod(removed.PeriodStart, removed.PeriodEnd)
+		if err != nil {
+			return err
+		}
+		entries, err := m.entriesTouching(ctx, tx, removed.AccountID, 0)
+		if err != nil {
+			return err
+		}
+		for _, e := range entries {
+			if withinPeriod(e, from, to) {
+				return ErrBudgetLineInUse
+			}
+		}
+		return m.on(ctx, tx, roleBudget).Where("id = ?", id).Delete(nil).Error
+	})
+	if err != nil {
+		return Budget{}, err
+	}
+	return removed, nil
+}
+
 func (m *ledgerStore) Variance(ctx context.Context, accountID, periodStart, periodEnd string) (Variance, error) {
 	from, to, err := parsePeriod(periodStart, periodEnd)
 	if err != nil {

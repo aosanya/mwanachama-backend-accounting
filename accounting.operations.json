@@ -420,6 +420,26 @@
         { "from": "query", "as": "period_end", "description": "The period's end, exclusive. Required with period_start." }
       ],
       "returns": [{ "body": true }]
+    },
+    "withdraw_budget": {
+      "method": "DELETE",
+      "path": "/budgets/{budgetID}",
+      "call": "DeleteBudget",
+      "action": "accounting.budget.delete",
+      "title": "Delete budget",
+      "description": "Delete one budget that nothing has been spent on: it is refused with 409 when any entry of its account falls inside its period. Returns the budget that was removed.",
+      "args": [
+        {
+          "from": "path",
+          "as": "budgetID",
+          "description": "The budget to delete."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
     }
   },
   "errors": {
@@ -432,6 +452,7 @@
     "ErrOverCertified": 409,
     "ErrRetentionHeld": 409,
     "ErrRetentionReleased": 409,
-    "ErrFigureTaken": 409
+    "ErrFigureTaken": 409,
+    "ErrBudgetLineInUse": 409
   }
 }

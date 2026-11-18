@@ -28,6 +28,7 @@ var sentinels = map[string]error{
 	"ErrRetentionHeld":     accounting.ErrRetentionHeld,
 	"ErrRetentionReleased": accounting.ErrRetentionReleased,
 	"ErrFigureTaken":       accounting.ErrFigureTaken,
+	"ErrBudgetLineInUse":   accounting.ErrBudgetLineInUse,
 }
 
 type Mount struct {

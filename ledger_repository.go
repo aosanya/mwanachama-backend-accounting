@@ -23,6 +23,8 @@ type LedgerRepository interface {
 
 	SetBudget(ctx context.Context, b Budget) (Budget, error)
 
+	DeleteBudget(ctx context.Context, id string) (Budget, error)
+
 	Variance(ctx context.Context, accountID, periodStart, periodEnd string) (Variance, error)
 
 	Overdue(ctx context.Context, accountID, asOf, ageFrom string) (Overdue, error)

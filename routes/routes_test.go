@@ -49,6 +49,7 @@ func patterns(rts []routes.Route, prefix string) []string {
 
 func TestRoutesAnswerTheSameAddressesAsBeforeTheConversion(t *testing.T) {
 	want := []string{
+		"DELETE /budgets/{budgetID}",
 		"GET /accounts",
 		"GET /accounts/{accountID}",
 		"GET /accounts/{accountID}/balance",

@@ -51,7 +51,25 @@ account.
 - **Nothing refuses a posting to an account with no budget.** Whether an
   actual may land without a budget to answer is a product decision for the
   consumer, not a ledger rule, and is left open.
-- No listing of budgets and no delete; a budget is replaced, not removed.
+- No listing of budgets; a budget is replaced, not listed. A budget can be deleted only while nothing has been spent in its period (see below).
+
+## Deleting a budget (MUN1472)
+
+Appended to `accounting.operations.json` as `withdraw_budget`, a name that
+sorts after every existing one so a mount that indexes `Shape()` keeps its
+positions.
+
+- `withdraw_budget` — `DELETE /budgets/{budgetID}`, action
+  `accounting.budget.delete`. Removes one budget and answers the budget that
+  was removed. A missing id is `ErrNotFound` (404). It is refused with
+  `ErrBudgetLineInUse` (409) when any entry of the budget's account falls
+  inside its period, by the same `occurred_at`-or-`posted_at` rule the
+  variance uses, so history is never dropped from under a figure. Nothing
+  else changes: the entries stay, and the same account and period can be set
+  again afterwards.
+- This repo has no tenders, so spending is the only refusal here. The hub copy
+  also refuses a line a tender draws on and takes an optional `version`
+  (the line's `set_at`) as the other hub updates do.
 
 ## Shared cost between neighbourhoods (MUN1409)
 
