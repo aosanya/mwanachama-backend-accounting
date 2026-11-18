@@ -66,24 +66,37 @@ func sideTotal(e Entry, selected accountSelection) (int64, bool) {
 	return total, touched
 }
 
-func foldByValue(entries []Entry, key string, selected accountSelection, w dimensionWindow) []DimensionTotal {
+func portionsOf(e Entry, key string, total int64, shared sharedLines, selected accountSelection) []portion {
+	if key == NeighbourhoodKey {
+		if shares, ok := shared.sharesOf(e, selected); ok {
+			return apportion(total, shares)
+		}
+	}
+	if value, carries := e.Dimensions[key]; carries {
+		return []portion{{value: value, amount: total}}
+	}
+	return nil
+}
+
+func foldByValue(entries []Entry, key string, selected accountSelection, w dimensionWindow, shared sharedLines) []DimensionTotal {
 	byValue := map[string]*DimensionTotal{}
 	for _, e := range entries {
-		value, carries := e.Dimensions[key]
-		if !carries || !w.admits(e) {
+		if !w.admits(e) {
 			continue
 		}
 		total, touched := sideTotal(e, selected)
 		if !touched {
 			continue
 		}
-		row, seen := byValue[value]
-		if !seen {
-			row = &DimensionTotal{Value: value}
-			byValue[value] = row
+		for _, part := range portionsOf(e, key, total, shared, selected) {
+			row, seen := byValue[part.value]
+			if !seen {
+				row = &DimensionTotal{Value: part.value}
+				byValue[part.value] = row
+			}
+			row.Total += part.amount
+			row.Entries++
 		}
-		row.Total += total
-		row.Entries++
 	}
 	return sortedTotals(byValue)
 }
@@ -113,11 +126,15 @@ func (m *ledgerStore) DimensionTotals(ctx context.Context, key, accountType, per
 	if err != nil {
 		return DimensionTotals{}, err
 	}
+	budgets, err := specstore.List[Budget](m.st, m.q(ctx, roleBudget), roleBudget)
+	if err != nil {
+		return DimensionTotals{}, err
+	}
 	return DimensionTotals{
 		Key:         key,
 		AccountType: accountType,
 		PeriodStart: periodStart,
 		PeriodEnd:   periodEnd,
-		Totals:      foldByValue(entries, key, selected, window),
+		Totals:      foldByValue(entries, key, selected, window, sharedLinesOf(budgets)),
 	}, nil
 }

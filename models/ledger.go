@@ -35,6 +35,9 @@ type Budget struct {
 	PeriodEnd   string `json:"period_end"`
 	Amount      int64  `json:"amount"`
 	SetAt       string `json:"set_at"`
+
+	FollowMilestones bool             `json:"follow_milestones,omitempty"`
+	CostShares       map[string]int64 `json:"cost_shares,omitempty"`
 }
 
 type Variance struct {

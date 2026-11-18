@@ -12,6 +12,8 @@ the comparison was two balances read by the caller.
 | `period_start` | first instant of the period, inclusive, RFC 3339 |
 | `period_end` | end of the period, exclusive, RFC 3339, after the start |
 | `amount` | the budgeted balance for the period |
+| `follow_milestones` | whether the line is followed milestone by milestone, off by default |
+| `cost_shares` | neighbourhood name to whole percent; absent means the cost is counted in one |
 | `set_at` | when the amount was last set, written by the store |
 
 One budget per `(account_id, period_start, period_end)`, declared as a unique
@@ -50,3 +52,21 @@ account.
   actual may land without a budget to answer is a product decision for the
   consumer, not a ledger rule, and is left open.
 - No listing of budgets and no delete; a budget is replaced, not removed.
+
+## Shared cost between neighbourhoods (MUN1409)
+
+Mirrored from the hub copy (hub commits c362e1c7 and 30bbeebb). `set_budget`
+stays a whole-body write, so a save replaces `follow_milestones` and
+`cost_shares` with what it sends; send them back unchanged to keep them.
+
+- `cost_shares` is checked in `SetBudget`: every key names a neighbourhood,
+  every percent is a whole number from 1 to 100 and they sum to 100, else
+  `ErrInvalid`. Empty means the cost is counted in one.
+- `DimensionTotals` for the key `neighbourhood` splits the spending on an
+  account whose line shares its cost, inside the line's period, over the line's
+  neighbourhoods by their percents, whatever neighbourhood the entry names or
+  whether it names one. The remainder of a division goes to the largest share.
+  A reversal takes back the same split. Any other key, entry, account or period
+  is folded as before.
+- `follow_milestones` is stored and returned; the library has no budget line
+  read, so a reader sees it in the answer of `set_budget`.

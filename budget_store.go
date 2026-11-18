@@ -55,6 +55,9 @@ func (m *ledgerStore) SetBudget(ctx context.Context, b Budget) (Budget, error) {
 	if _, _, err := parsePeriod(b.PeriodStart, b.PeriodEnd); err != nil {
 		return Budget{}, err
 	}
+	if err := checkCostShares(b.CostShares); err != nil {
+		return Budget{}, err
+	}
 
 	var out Budget
 	err := m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

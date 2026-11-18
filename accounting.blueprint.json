@@ -251,6 +251,16 @@
           "description": "The budgeted balance for the period, in the same smallest unit and the same debit-minus-credit sense as the account's balance."
         },
         {
+          "name": "follow_milestones",
+          "type": "bool",
+          "description": "Whether the line is followed milestone by milestone. Off by default; a reader shows the line's milestones and payment certificates only when it is on."
+        },
+        {
+          "name": "cost_shares",
+          "type": "json",
+          "description": "How the line's spending falls on neighbourhoods, as a flat object of neighbourhood name to whole percent. The percents are positive and sum to 100. Absent means the cost is counted in one: each spending entry stays with the neighbourhood it names."
+        },
+        {
           "name": "set_at",
           "type": "timestamp",
           "description": "When the amount was last set. Written by the store, never by a caller."
