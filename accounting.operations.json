@@ -745,7 +745,7 @@
       "action": "accounting.upward_report.send",
       "status": 201,
       "title": "Send upward report",
-      "description": "Record that the report of one period was sent upward. The report is folded at that moment, the same one accounting_report_read gives, and one record is kept: its kind, the period, the planned, spent and difference totals as sent (the difference is planned minus spent), the department figures, when it was sent and who sent it. Kind is budget_and_actuals, which also keeps every budget line, or spending_by_department, which keeps the department figures only. Refused for any other kind, and for a period with no budget lines. A second send of the same period and kind is another record, never an edit. Nothing is transmitted over a network.",
+      "description": "Record that the report of one period was sent upward. The report is folded at that moment, the same one accounting_report_read gives, and one record is kept: its kind, the period, the planned, spent and difference totals as sent (the difference is planned minus spent), the department figures, when it was sent and who sent it. Kind is budget_and_actuals, which also keeps every budget line, or spending_by_department, which keeps the department figures only. Name who it went to if known: recipient (the name as written), recipient_record_row_id (the recipient's row in a record, a uuid; reports can then be listed by recipient_record_row_id) and reference (the recipient's own contract or grant number); all three are optional and kept as sent, never edited. Refused for any other kind, for a recipient_record_row_id that is not a uuid, and for a period with no budget lines. A second send of the same period and kind is another record, never an edit. Nothing is transmitted over a network.",
       "args": [
         { "from": "body", "whole": true },
         { "from": "caller", "as": "sent_by", "into": "SentBy", "description": "Who sent the report, supplied by the mount. Never read from the request." }
@@ -758,7 +758,7 @@
       "call": "ListUpwardReports",
       "action": "accounting.upward_report.list",
       "title": "List upward reports",
-      "description": "List the reports sent upward, newest first, each with its kind, period, the planned, spent and difference totals as sent (the difference is planned minus spent), the department figures, the budget lines when the kind keeps them, when it was sent and who sent it. Limit caps the page.",
+      "description": "List the reports sent upward, newest first, each with its kind, period, the planned, spent and difference totals as sent (the difference is planned minus spent), the department figures, the budget lines when the kind keeps them, when it was sent, who sent it and, when it named them, its recipient, recipient_record_row_id and reference. Narrow by recipient_record_row_id to list the reports sent to one recipient; limit caps the page.",
       "args": [
         { "from": "query", "whole": true }
       ],

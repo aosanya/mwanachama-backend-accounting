@@ -12,6 +12,10 @@ type UpwardReportInput struct {
 	PeriodEnd   string           `json:"period_end"`
 	Kind        UpwardReportKind `json:"kind"`
 	SentBy      string           `json:"sent_by"`
+
+	Recipient            string `json:"recipient,omitempty"`
+	RecipientRecordRowID string `json:"recipient_record_row_id,omitempty"`
+	Reference            string `json:"reference,omitempty"`
 }
 
 type UpwardReport struct {
@@ -26,4 +30,8 @@ type UpwardReport struct {
 	Lines       []BudgetLine        `json:"lines,omitempty"`
 	SentBy      string              `json:"sent_by"`
 	SentAt      string              `json:"sent_at"`
+
+	Recipient            string `json:"recipient,omitempty"`
+	RecipientRecordRowID string `json:"recipient_record_row_id,omitempty"`
+	Reference            string `json:"reference,omitempty"`
 }

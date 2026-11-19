@@ -963,6 +963,24 @@
           "type": "timestamp",
           "description": "When the report was sent. Written by the store.",
           "immutable": true
+        },
+        {
+          "name": "recipient",
+          "type": "string",
+          "description": "Who the report was sent to, as the sender wrote it, trimmed. Absent when the report names no recipient.",
+          "immutable": true
+        },
+        {
+          "name": "recipient_record_row_id",
+          "type": "string",
+          "description": "The recipient's row in a record the caller keeps, as a uuid. Narrows the list of sent reports. Absent when the report names none.",
+          "immutable": true
+        },
+        {
+          "name": "reference",
+          "type": "string",
+          "description": "The recipient's own number for what the report concerns, such as a contract or grant number, as the sender wrote it, trimmed. Absent when the report names none.",
+          "immutable": true
         }
       ],
       "indexes": [
@@ -971,6 +989,13 @@
           "description": "Lists the sent reports newest first.",
           "fields": [
             "sent_at"
+          ]
+        },
+        {
+          "name": "recipient",
+          "description": "Lists the reports sent to one recipient row.",
+          "fields": [
+            "recipient_record_row_id"
           ]
         }
       ]

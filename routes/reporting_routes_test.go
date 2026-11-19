@@ -153,3 +153,45 @@ func TestTheEntriesOfOneNeighbourhoodAreListedOverHTTP(t *testing.T) {
 		t.Fatalf("a key of the wrong shape: got %d, want 400", rec.Code)
 	}
 }
+
+func TestAReportSentToARecipientListsBackAndNarrowsByItsRecipientRowOverHTTP(t *testing.T) {
+	const lakeshoreRow = "3f2a9c1e-7b44-4d0e-9a51-5c8e2d6f1a10"
+	const harborRow = "b7d1e0c4-2a96-4f38-8c05-1e9a4b7d3f22"
+	handlers := clerkRoutes(t)
+	roads := openOverHTTP(t, handlers, "roads", "expense")
+	rec := serve(handlers, http.MethodPut, "/budgets",
+		`{"account_id":"`+roads.ID+`","period_start":"`+januaryFirst+`","period_end":"`+februaryFirst+`","name":"Road repair","department":"Public works","amount":1000,"create":true}`)
+	if rec.Code != http.StatusOK && rec.Code != http.StatusCreated {
+		t.Fatalf("set budget line: got %d, body %s", rec.Code, rec.Body.String())
+	}
+	period := `"period_start":"` + januaryFirst + `","period_end":"` + februaryFirst + `","kind":"budget_and_actuals"`
+
+	rec = serve(handlers, http.MethodPost, "/upward-reports",
+		`{`+period+`,"recipient":"Lakeshore Fund","recipient_record_row_id":"`+lakeshoreRow+`","reference":"LF-2026-0417"}`)
+	var sent accounting.UpwardReport
+	decode(t, rec, &sent)
+	if rec.Code != http.StatusCreated || sent.Recipient != "Lakeshore Fund" || sent.RecipientRecordRowID != lakeshoreRow || sent.Reference != "LF-2026-0417" {
+		t.Fatalf("send to a recipient: got %d, %+v", rec.Code, sent)
+	}
+	if rec := serve(handlers, http.MethodPost, "/upward-reports",
+		`{`+period+`,"recipient":"Harbor Trust","recipient_record_row_id":"`+harborRow+`"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("send to another recipient: got %d, body %s", rec.Code, rec.Body.String())
+	}
+	if rec := serve(handlers, http.MethodPost, "/upward-reports",
+		`{`+period+`,"recipient_record_row_id":"Lakeshore Fund"}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("a recipient row id that is not a uuid: got %d, want 400, body %s", rec.Code, rec.Body.String())
+	}
+
+	rec = serve(handlers, http.MethodGet, "/upward-reports?recipient_record_row_id="+lakeshoreRow, "")
+	var listed []accounting.UpwardReport
+	decode(t, rec, &listed)
+	if rec.Code != http.StatusOK || len(listed) != 1 || listed[0].ID != sent.ID || listed[0].Reference != "LF-2026-0417" {
+		t.Fatalf("list by recipient row: got %d, %+v", rec.Code, listed)
+	}
+	rec = serve(handlers, http.MethodGet, "/upward-reports", "")
+	var all []accounting.UpwardReport
+	decode(t, rec, &all)
+	if rec.Code != http.StatusOK || len(all) != 2 {
+		t.Fatalf("list without a filter: got %d, %+v", rec.Code, all)
+	}
+}

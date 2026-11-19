@@ -156,3 +156,117 @@ func TestListingUpwardReportsHonoursTheLimitAndIsEmptyWhenNothingWasSent(t *test
 		t.Fatalf("limited %+v %v", limited, err)
 	}
 }
+
+const (
+	lakeshoreRow = "3f2a9c1e-7b44-4d0e-9a51-5c8e2d6f1a10"
+	harborRow    = "b7d1e0c4-2a96-4f38-8c05-1e9a4b7d3f22"
+)
+
+func (f storeFixture) sendTo(t *testing.T, recipient, row, reference string) accounting.UpwardReport {
+	t.Helper()
+	sent, err := f.repo.SendUpwardReport(f.bg, accounting.UpwardReportInput{
+		PeriodStart: januaryStart, PeriodEnd: februaryStart, Kind: "budget_and_actuals", SentBy: "officer-zoldhalom",
+		Recipient: recipient, RecipientRecordRowID: row, Reference: reference,
+	})
+	if err != nil {
+		t.Fatalf("SendUpwardReport to %q: %v", recipient, err)
+	}
+	return sent
+}
+
+func TestASendNamingARecipientKeepsItAsSentAndListsBackWithIt(t *testing.T) {
+	f := newStoreFixture(t)
+	f.zoldhalomJanuary(t)
+
+	sent := f.sendTo(t, "Lakeshore Fund", lakeshoreRow, "LF-2026-0417")
+	if sent.Recipient != "Lakeshore Fund" || sent.RecipientRecordRowID != lakeshoreRow || sent.Reference != "LF-2026-0417" {
+		t.Fatalf("sent %+v", sent)
+	}
+	listed, err := f.repo.ListUpwardReports(f.bg, accounting.UpwardReportFilter{})
+	if err != nil || len(listed) != 1 {
+		t.Fatalf("listed %+v %v", listed, err)
+	}
+	if listed[0].Recipient != "Lakeshore Fund" || listed[0].RecipientRecordRowID != lakeshoreRow || listed[0].Reference != "LF-2026-0417" {
+		t.Fatalf("listed back %+v", listed[0])
+	}
+}
+
+func TestASendWithoutARecipientReadsAsBefore(t *testing.T) {
+	f := newStoreFixture(t)
+	f.zoldhalomJanuary(t)
+
+	sent := f.send(t, "budget_and_actuals")
+	if sent.Recipient != "" || sent.RecipientRecordRowID != "" || sent.Reference != "" {
+		t.Fatalf("sent %+v", sent)
+	}
+	listed, err := f.repo.ListUpwardReports(f.bg, accounting.UpwardReportFilter{})
+	if err != nil || len(listed) != 1 || listed[0].Recipient != "" || listed[0].RecipientRecordRowID != "" || listed[0].Reference != "" {
+		t.Fatalf("listed %+v %v", listed, err)
+	}
+}
+
+func TestListingByRecipientRecordRowIDKeepsOnlyThatRecipientsReportsNewestFirst(t *testing.T) {
+	f := newStoreFixture(t)
+	f.zoldhalomJanuary(t)
+	first := f.sendTo(t, "Lakeshore Fund", lakeshoreRow, "LF-2026-0417")
+	f.sendTo(t, "Harbor Trust", harborRow, "HT-77")
+	f.send(t, "spending_by_department")
+	second := f.sendTo(t, "Lakeshore Fund", lakeshoreRow, "LF-2026-0418")
+
+	listed, err := f.repo.ListUpwardReports(f.bg, accounting.UpwardReportFilter{RecipientRecordRowID: lakeshoreRow})
+	if err != nil || len(listed) != 2 {
+		t.Fatalf("listed %+v %v", listed, err)
+	}
+	if listed[0].ID != second.ID || listed[1].ID != first.ID {
+		t.Fatalf("order %s %s", listed[0].ID, listed[1].ID)
+	}
+	none, err := f.repo.ListUpwardReports(f.bg, accounting.UpwardReportFilter{RecipientRecordRowID: "0d6c5b4a-9e83-4a71-b2f0-6a1c8e3d5b97"})
+	if err != nil || none == nil || len(none) != 0 {
+		t.Fatalf("none %#v %v", none, err)
+	}
+	limited, err := f.repo.ListUpwardReports(f.bg, accounting.UpwardReportFilter{RecipientRecordRowID: lakeshoreRow, Limit: 1})
+	if err != nil || len(limited) != 1 || limited[0].ID != second.ID {
+		t.Fatalf("limited %+v %v", limited, err)
+	}
+}
+
+func TestABlankRecipientRecordRowIDFilterListsEveryReport(t *testing.T) {
+	f := newStoreFixture(t)
+	f.zoldhalomJanuary(t)
+	f.sendTo(t, "Lakeshore Fund", lakeshoreRow, "")
+	f.send(t, "spending_by_department")
+
+	for _, row := range []string{"", "  "} {
+		listed, err := f.repo.ListUpwardReports(f.bg, accounting.UpwardReportFilter{RecipientRecordRowID: row})
+		if err != nil || len(listed) != 2 {
+			t.Fatalf("filter %q: listed %+v %v", row, listed, err)
+		}
+	}
+}
+
+func TestARecipientRecordRowIDThatIsNotARowIDIsRefusedAndNothingIsStored(t *testing.T) {
+	f := newStoreFixture(t)
+	f.zoldhalomJanuary(t)
+	for _, row := range []string{"Lakeshore Fund", "3f2a9c1e", "3f2a9c1e-7b44-4d0e-9a51-5c8e2d6f1a1"} {
+		_, err := f.repo.SendUpwardReport(f.bg, accounting.UpwardReportInput{
+			PeriodStart: januaryStart, PeriodEnd: februaryStart, Kind: "budget_and_actuals", SentBy: "officer-zoldhalom",
+			RecipientRecordRowID: row,
+		})
+		if !errors.Is(err, accounting.ErrInvalid) {
+			t.Fatalf("row %q: err %v", row, err)
+		}
+	}
+	listed, err := f.repo.ListUpwardReports(f.bg, accounting.UpwardReportFilter{})
+	if err != nil || len(listed) != 0 {
+		t.Fatalf("listed %+v %v", listed, err)
+	}
+}
+
+func TestTheRecipientAndReferenceAreStoredTrimmed(t *testing.T) {
+	f := newStoreFixture(t)
+	f.zoldhalomJanuary(t)
+	sent := f.sendTo(t, "  Lakeshore Fund  ", lakeshoreRow, " LF-2026-0417 ")
+	if sent.Recipient != "Lakeshore Fund" || sent.Reference != "LF-2026-0417" {
+		t.Fatalf("sent %+v", sent)
+	}
+}

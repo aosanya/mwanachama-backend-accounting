@@ -7,6 +7,7 @@ import (
 
 	"github.com/aosanya/mwanachama-backend-accounting/models"
 	"github.com/aosanya/mwanachama-backend-shared/specstore"
+	"github.com/google/uuid"
 )
 
 const roleUpwardReport = "upward_report"
@@ -18,13 +19,25 @@ type (
 )
 
 type UpwardReportFilter struct {
-	Limit int `query:"limit"`
+	RecipientRecordRowID string `query:"recipient_record_row_id"`
+	Limit                int    `query:"limit"`
 }
 
 type UpwardReportRepository interface {
 	SendUpwardReport(ctx context.Context, in UpwardReportInput) (UpwardReport, error)
 
 	ListUpwardReports(ctx context.Context, filter UpwardReportFilter) ([]UpwardReport, error)
+}
+
+func checkRecipientRecordRowID(recipientRecordRowID string) error {
+	recipientRecordRowID = strings.TrimSpace(recipientRecordRowID)
+	if recipientRecordRowID == "" {
+		return nil
+	}
+	if _, err := uuid.Parse(recipientRecordRowID); err != nil || len(recipientRecordRowID) != uuidLength {
+		return fmt.Errorf("%w: recipient_record_row_id %q is not a record row id", ErrInvalid, recipientRecordRowID)
+	}
+	return nil
 }
 
 func (m *ledgerStore) SendUpwardReport(ctx context.Context, in UpwardReportInput) (UpwardReport, error) {
@@ -34,7 +47,15 @@ func (m *ledgerStore) SendUpwardReport(ctx context.Context, in UpwardReportInput
 	if strings.TrimSpace(in.SentBy) == "" {
 		return UpwardReport{}, fmt.Errorf("%w: an upward report names no sent_by", ErrInvalid)
 	}
-	sent := UpwardReport{Kind: in.Kind, PeriodStart: in.PeriodStart, PeriodEnd: in.PeriodEnd, SentBy: in.SentBy}
+	if err := checkRecipientRecordRowID(in.RecipientRecordRowID); err != nil {
+		return UpwardReport{}, err
+	}
+	sent := UpwardReport{
+		Kind: in.Kind, PeriodStart: in.PeriodStart, PeriodEnd: in.PeriodEnd, SentBy: in.SentBy,
+		Recipient:            strings.TrimSpace(in.Recipient),
+		RecipientRecordRowID: strings.TrimSpace(in.RecipientRecordRowID),
+		Reference:            strings.TrimSpace(in.Reference),
+	}
 	if err := m.checks(roleUpwardReport, sent); err != nil {
 		return UpwardReport{}, err
 	}
@@ -70,5 +91,8 @@ func (m *ledgerStore) ListUpwardReports(ctx context.Context, filter UpwardReport
 		limit = DefaultPage
 	}
 	q := m.q(ctx, roleUpwardReport).Order("sent_at desc, id desc").Limit(limit)
+	if row := strings.TrimSpace(filter.RecipientRecordRowID); row != "" {
+		q = q.Where("recipient_record_row_id = ?", row)
+	}
 	return specstore.List[UpwardReport](m.st, q, roleUpwardReport)
 }
