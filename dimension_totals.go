@@ -186,13 +186,28 @@ func (m *ledgerStore) DimensionEntries(ctx context.Context, key, value, accountT
 	if err != nil {
 		return DimensionEntries{}, err
 	}
+	budgets, err := specstore.List[Budget](m.st, m.q(ctx, roleBudget), roleBudget)
+	if err != nil {
+		return DimensionEntries{}, err
+	}
+	shared := sharedLinesOf(budgets)
 	rows := []DimensionEntry{}
-	for _, e := range carrying(entries, key, value) {
-		amount, touched := sideTotal(e, selected)
+	for _, e := range entries {
+		total, touched := sideTotal(e, selected)
 		if !touched || !window.admits(e) {
 			continue
 		}
-		rows = append(rows, DimensionEntry{ID: e.ID, OccurredAt: happenedAt(e), Amount: amount, Narration: e.Narration, Account: categoryOnSelectedSide(e, selected, categories)})
+		for _, part := range portionsOf(e, key, total, shared, selected) {
+			if part.value != value {
+				continue
+			}
+			row := DimensionEntry{ID: e.ID, OccurredAt: happenedAt(e), Amount: part.amount, Narration: e.Narration, Account: categoryOnSelectedSide(e, selected, categories)}
+			if shares, isShared := shared.sharesOf(e, selected); isShared && key == NeighbourhoodKey {
+				row.Whole = total
+				row.SharePercent = shares[value]
+			}
+			rows = append(rows, row)
+		}
 	}
 	sort.SliceStable(rows, func(i, j int) bool { return rows[i].OccurredAt > rows[j].OccurredAt })
 	return DimensionEntries{Key: key, Value: value, AccountType: accountType, PeriodStart: periodStart, PeriodEnd: periodEnd, Entries: rows}, nil

@@ -225,3 +225,59 @@ func TestAnotherSetWithoutSharesReadsBackAsNotSharingItsCost(t *testing.T) {
 		t.Fatalf("line %+v", got)
 	}
 }
+
+func (l townLedger) entriesOf(t *testing.T, value string) []accounting.DimensionEntry {
+	t.Helper()
+	got, err := l.repo.DimensionEntries(t.Context(), "neighbourhood", value, string(accounting.AccountTypeExpense), "", "")
+	if err != nil {
+		t.Fatalf("DimensionEntries: %v", err)
+	}
+	return got.Entries
+}
+
+func TestASharedEntryAppearsInEachNeighbourhoodsListWithItsShare(t *testing.T) {
+	l := openTownLedger(t)
+	l.lineOn(t, l.repair, true, map[string]int64{"Óváros": 60, "Kertváros": 40})
+	l.spend(t, l.repair, 1000000, "2026-01-15T09:00:00Z", neighbourhood("Malomsor"))
+
+	kert := l.entriesOf(t, "Kertváros")
+	if len(kert) != 1 || kert[0].Amount != 400000 || kert[0].Whole != 1000000 || kert[0].SharePercent != 40 {
+		t.Fatalf("Kertváros entries %+v, want one row of 400000 that is 40 percent of 1000000", kert)
+	}
+	ovaros := l.entriesOf(t, "Óváros")
+	if len(ovaros) != 1 || ovaros[0].Amount != 600000 || ovaros[0].Whole != 1000000 || ovaros[0].SharePercent != 60 {
+		t.Fatalf("Óváros entries %+v, want one row of 600000 that is 60 percent of 1000000", ovaros)
+	}
+	if got := l.entriesOf(t, "Malomsor"); len(got) != 0 {
+		t.Fatalf("Malomsor entries %+v, want none: the line's shares replace the neighbourhood the entry names", got)
+	}
+}
+
+func TestANeighbourhoodsEntriesAddUpToItsTotal(t *testing.T) {
+	l := openTownLedger(t)
+	l.lineOn(t, l.repair, true, map[string]int64{"Óváros": 60, "Kertváros": 40})
+	l.spend(t, l.repair, 1000000, "2026-01-15T09:00:00Z", neighbourhood("Malomsor"))
+	l.spend(t, l.wages, 700, "2026-01-16T09:00:00Z", neighbourhood("Kertváros"))
+
+	for _, total := range l.neighbourhoodTotals(t) {
+		var sum int64
+		rows := l.entriesOf(t, total.Value)
+		for _, row := range rows {
+			sum += row.Amount
+		}
+		if sum != total.Total || len(rows) != total.Entries {
+			t.Fatalf("%s: entries sum %d over %d rows, total %d over %d", total.Value, sum, len(rows), total.Total, total.Entries)
+		}
+	}
+}
+
+func TestAnEntryNamingItsOwnNeighbourhoodHasNoSharePercent(t *testing.T) {
+	l := openTownLedger(t)
+	l.lineOn(t, l.repair, false, nil)
+	l.spend(t, l.repair, 1000, "2026-01-15T09:00:00Z", neighbourhood("Malomsor"))
+
+	rows := l.entriesOf(t, "Malomsor")
+	if len(rows) != 1 || rows[0].Amount != 1000 || rows[0].SharePercent != 0 || rows[0].Whole != 0 {
+		t.Fatalf("Malomsor entries %+v, want one plain row of 1000 with no share", rows)
+	}
+}

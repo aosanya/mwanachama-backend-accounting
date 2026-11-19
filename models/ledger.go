@@ -84,11 +84,13 @@ type DimensionTotals struct {
 }
 
 type DimensionEntry struct {
-	ID         string `json:"id"`
-	OccurredAt string `json:"occurred_at"`
-	Amount     int64  `json:"amount"`
-	Narration  string `json:"narration,omitempty"`
-	Account    string `json:"account"`
+	ID           string `json:"id"`
+	OccurredAt   string `json:"occurred_at"`
+	Amount       int64  `json:"amount"`
+	Whole        int64  `json:"whole,omitempty"`
+	SharePercent int64  `json:"share_percent,omitempty"`
+	Narration    string `json:"narration,omitempty"`
+	Account      string `json:"account"`
 }
 
 type DimensionEntries struct {
