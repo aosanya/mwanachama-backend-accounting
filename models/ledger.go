@@ -33,10 +33,28 @@ type Budget struct {
 	AccountID   string `json:"account_id"`
 	PeriodStart string `json:"period_start"`
 	PeriodEnd   string `json:"period_end"`
+	Name        string `json:"name,omitempty"`
+	Department  string `json:"department,omitempty"`
 	Amount      int64  `json:"amount"`
 	SetAt       string `json:"set_at"`
+	Create      bool   `json:"create,omitempty" spec:"-"`
 
 	FollowMilestones bool             `json:"follow_milestones,omitempty"`
+	CostShares       map[string]int64 `json:"cost_shares,omitempty"`
+}
+
+type BudgetLine struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Department  string `json:"department"`
+	AccountID   string `json:"account_id"`
+	PeriodStart string `json:"period_start"`
+	PeriodEnd   string `json:"period_end"`
+	Planned     int64  `json:"planned"`
+	Spent       int64  `json:"spent"`
+	SetAt       string `json:"set_at"`
+
+	FollowMilestones bool             `json:"follow_milestones"`
 	CostShares       map[string]int64 `json:"cost_shares,omitempty"`
 }
 
@@ -61,6 +79,24 @@ type DimensionTotals struct {
 	PeriodStart string           `json:"period_start,omitempty"`
 	PeriodEnd   string           `json:"period_end,omitempty"`
 	Totals      []DimensionTotal `json:"totals"`
+	Without     DimensionTotal   `json:"without"`
+}
+
+type DimensionEntry struct {
+	ID         string `json:"id"`
+	OccurredAt string `json:"occurred_at"`
+	Amount     int64  `json:"amount"`
+	Narration  string `json:"narration,omitempty"`
+	Account    string `json:"account"`
+}
+
+type DimensionEntries struct {
+	Key         string           `json:"key"`
+	Value       string           `json:"value"`
+	AccountType string           `json:"account_type,omitempty"`
+	PeriodStart string           `json:"period_start,omitempty"`
+	PeriodEnd   string           `json:"period_end,omitempty"`
+	Entries     []DimensionEntry `json:"entries"`
 }
 
 type AgeBasis string

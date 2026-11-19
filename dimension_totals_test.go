@@ -210,3 +210,48 @@ func TestDimensionTotalsRefusesABadQuery(t *testing.T) {
 		}
 	}
 }
+
+func TestDimensionTotalsSaysHowMuchCarriesNoValueForTheKey(t *testing.T) {
+	l := zoldhalomYear(t)
+
+	got, err := l.repo.DimensionTotals(t.Context(), "neighbourhood", string(accounting.AccountTypeExpense), "", "")
+	if err != nil {
+		t.Fatalf("DimensionTotals: %v", err)
+	}
+	want := accounting.DimensionTotal{Total: 1004, Entries: 2}
+	if got.Without != want {
+		t.Fatalf("without = %+v, want %+v", got.Without, want)
+	}
+}
+
+func TestDimensionEntriesListsOneValuesEntriesNewestFirstWithTheAmountOnTheAskedAccountType(t *testing.T) {
+	l := zoldhalomYear(t)
+	l.spend(t, l.repair, 40, "2026-01-25T09:00:00Z", neighbourhood("Óváros"))
+
+	got, err := l.repo.DimensionEntries(t.Context(), "neighbourhood", "Óváros", string(accounting.AccountTypeExpense), "", "")
+	if err != nil {
+		t.Fatalf("DimensionEntries: %v", err)
+	}
+	var days []string
+	var amounts []int64
+	for _, row := range got.Entries {
+		days = append(days, row.OccurredAt)
+		amounts = append(amounts, row.Amount)
+	}
+	wantDays := []string{"2026-01-25T09:00:00Z", "2026-01-20T09:00:00Z", "2026-01-10T09:00:00Z"}
+	wantAmounts := []int64{1000, 40, 50, 100}
+	if len(got.Entries) != 4 || !reflect.DeepEqual(days[1:], wantDays) || !reflect.DeepEqual(amounts, wantAmounts) {
+		t.Fatalf("entries = %+v, want four, newest first, the undated one first by its posting day, then %v", got.Entries, wantDays)
+	}
+	if got.Key != "neighbourhood" || got.Value != "Óváros" || got.Entries[3].Account != "wages" {
+		t.Fatalf("account = %q, want the category of the account the amount fell on", got.Entries[0].Account)
+	}
+}
+
+func TestDimensionEntriesRefusesAnUnknownKeyShape(t *testing.T) {
+	l := zoldhalomYear(t)
+
+	if _, err := l.repo.DimensionEntries(t.Context(), "Neighbourhood", "Óváros", "", "", ""); !errors.Is(err, accounting.ErrInvalid) {
+		t.Fatalf("err = %v, want ErrInvalid", err)
+	}
+}

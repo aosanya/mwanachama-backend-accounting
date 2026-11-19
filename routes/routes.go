@@ -31,6 +31,8 @@ var sentinels = map[string]error{
 	"ErrBudgetLineInUse":   accounting.ErrBudgetLineInUse,
 	"ErrOverDaysBought":    accounting.ErrOverDaysBought,
 	"ErrDayEntryDecided":   accounting.ErrDayEntryDecided,
+	"ErrLocked":            accounting.ErrLocked,
+	"ErrBudgetLineExists":  dispatch.ByType(&accounting.BudgetLineExistsError{}, nil),
 }
 
 type Mount struct {

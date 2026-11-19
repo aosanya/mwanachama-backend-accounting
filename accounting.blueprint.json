@@ -246,6 +246,16 @@
           "immutable": true
         },
         {
+          "name": "name",
+          "type": "string",
+          "description": "What the budget line is called, such as Road repair."
+        },
+        {
+          "name": "department",
+          "type": "string",
+          "description": "The department the budget line belongs to, such as Public works."
+        },
+        {
           "name": "amount",
           "type": "int",
           "description": "The budgeted balance for the period, in the same smallest unit and the same debit-minus-credit sense as the account's balance."
@@ -741,6 +751,221 @@
             "project",
             "consultant",
             "status"
+          ]
+        }
+      ]
+    },
+    {
+      "role": "tender",
+      "description": "A request to buy something, drawn against one budget line, that suppliers answer with quotes. Append-only: it is recorded once and read back with the quotes offered for it.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "budget_id",
+          "type": "string",
+          "description": "The budget line the purchase draws on.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "description": "What is bought, in the caller's words, such as Resurfacing of Mill Street.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "description": "The specification suppliers quote against.",
+          "immutable": true
+        },
+        {
+          "name": "closes_at",
+          "type": "timestamp",
+          "description": "When quotes stop being invited, as an RFC 3339 instant. Absent when no date is set.",
+          "immutable": true
+        },
+        {
+          "name": "created_by",
+          "type": "string",
+          "description": "Who opened the tender, supplied by the mount.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "description": "When the tender was recorded. Written by the store.",
+          "immutable": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "budget",
+          "description": "Lists the tenders drawing on one budget line.",
+          "fields": [
+            "budget_id"
+          ]
+        }
+      ]
+    },
+    {
+      "role": "quote",
+      "description": "One supplier's offer for a tender. Append-only: a supplier that changes its offer sends another quote.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "tender_id",
+          "type": "string",
+          "description": "The tender the offer answers.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "supplier",
+          "type": "string",
+          "description": "Who makes the offer, as the supplier is named.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "amount",
+          "type": "int",
+          "description": "The price offered in the smallest unit, always positive.",
+          "immutable": true
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "description": "What the offer includes or assumes.",
+          "immutable": true
+        },
+        {
+          "name": "valid_until",
+          "type": "timestamp",
+          "description": "The last instant the price holds, as an RFC 3339 instant. Absent when it has no end.",
+          "immutable": true
+        },
+        {
+          "name": "quoted_by",
+          "type": "string",
+          "description": "Who recorded the quote, supplied by the mount.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "quoted_at",
+          "type": "timestamp",
+          "description": "When the quote was recorded. Written by the store.",
+          "immutable": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "tender",
+          "description": "Lists the quotes offered for one tender.",
+          "fields": [
+            "tender_id"
+          ]
+        }
+      ]
+    },
+    {
+      "role": "upward_report",
+      "description": "A financial report as it stood when it was sent upward: the totals and department figures folded at that moment, and the budget lines when the kind keeps them. Append-only: a second send of the same period and kind is another record.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "kind",
+          "type": "enum",
+          "description": "Which report was sent. budget_and_actuals keeps every budget line beside the figures; spending_by_department keeps the department figures only.",
+          "required": true,
+          "values": [
+            "budget_and_actuals",
+            "spending_by_department"
+          ],
+          "immutable": true
+        },
+        {
+          "name": "period_start",
+          "type": "timestamp",
+          "description": "The first instant of the period reported, inclusive, as an RFC 3339 instant, exactly as the budget lines were set.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "period_end",
+          "type": "timestamp",
+          "description": "The instant the period reported ends, exclusive, as an RFC 3339 instant, exactly as the budget lines were set.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "planned",
+          "type": "int",
+          "description": "The planned total of the period as sent.",
+          "immutable": true
+        },
+        {
+          "name": "spent",
+          "type": "int",
+          "description": "The spent total of the period as sent.",
+          "immutable": true
+        },
+        {
+          "name": "difference",
+          "type": "int",
+          "description": "Planned minus spent as sent.",
+          "immutable": true
+        },
+        {
+          "name": "departments",
+          "type": "json",
+          "description": "The planned, spent and difference figures of each department as sent, the difference being planned minus spent.",
+          "immutable": true
+        },
+        {
+          "name": "lines",
+          "type": "json",
+          "description": "Every budget line of the period as sent. Absent for the kinds that do not keep them.",
+          "immutable": true
+        },
+        {
+          "name": "sent_by",
+          "type": "string",
+          "description": "Who sent the report, supplied by the mount.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "sent_at",
+          "type": "timestamp",
+          "description": "When the report was sent. Written by the store.",
+          "immutable": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "sent",
+          "description": "Lists the sent reports newest first.",
+          "fields": [
+            "sent_at"
           ]
         }
       ]

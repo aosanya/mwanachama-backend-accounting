@@ -185,3 +185,43 @@ func TestSharesDoNotChangeTheTotalsOfAnyOtherDimensionKey(t *testing.T) {
 		t.Fatalf("totals %+v, want %+v", got.Totals, want)
 	}
 }
+
+func TestABudgetLineReadsBackWhetherItFollowsMilestonesAndHowItsCostIsShared(t *testing.T) {
+	l := openTownLedger(t)
+	set := l.lineOn(t, l.repair, true, map[string]int64{"Óváros": 60, "Kertváros": 40})
+
+	got, err := l.repo.GetBudgetLine(t.Context(), set.ID)
+	if err != nil {
+		t.Fatalf("GetBudgetLine: %v", err)
+	}
+	if !got.FollowMilestones || !reflect.DeepEqual(got.CostShares, map[string]int64{"Óváros": 60, "Kertváros": 40}) {
+		t.Fatalf("line %+v", got)
+	}
+}
+
+func TestANewBudgetLineReadsBackAsNotFollowingMilestonesAndNotSharingItsCost(t *testing.T) {
+	l := openTownLedger(t)
+	set := l.lineOn(t, l.repair, false, nil)
+
+	got, err := l.repo.GetBudgetLine(t.Context(), set.ID)
+	if err != nil {
+		t.Fatalf("GetBudgetLine: %v", err)
+	}
+	if got.FollowMilestones || len(got.CostShares) != 0 {
+		t.Fatalf("line %+v", got)
+	}
+}
+
+func TestAnotherSetWithoutSharesReadsBackAsNotSharingItsCost(t *testing.T) {
+	l := openTownLedger(t)
+	l.lineOn(t, l.repair, true, map[string]int64{"Óváros": 60, "Kertváros": 40})
+	again := l.lineOn(t, l.repair, false, nil)
+
+	got, err := l.repo.GetBudgetLine(t.Context(), again.ID)
+	if err != nil {
+		t.Fatalf("GetBudgetLine: %v", err)
+	}
+	if got.FollowMilestones || len(got.CostShares) != 0 {
+		t.Fatalf("line %+v", got)
+	}
+}

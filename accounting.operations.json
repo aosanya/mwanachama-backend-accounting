@@ -151,7 +151,7 @@
       "call": "SetBudget",
       "action": "accounting.budget.set",
       "title": "Set budget",
-      "description": "Set what one account is expected to hold over one period. Setting it again for the same account and period replaces the amount. The period runs from period_start, inclusive, to period_end, exclusive.",
+      "description": "Set one budget line: what one account is expected to hold over one period, with a name and the department it belongs to. Setting it again for the same account and period replaces the name, department, amount, follow_milestones and cost_shares, so send them back unchanged to keep them; follow_milestones true makes a reader show the line's milestones and payment certificates, and cost_shares, a neighbourhood name to a whole percent that add up to 100, spreads the line's spending over those neighbourhoods in the totals by neighbourhood, where absent each spending entry stays with the neighbourhood it names; send create true when adding a new line, to be refused when that account and period already hold one. The period runs from period_start, inclusive, to period_end, exclusive.",
       "args": [
         {
           "from": "body",
@@ -412,7 +412,7 @@
       "call": "DimensionTotals",
       "action": "accounting.dimension.totals",
       "title": "Read totals by dimension",
-      "description": "Fold debit minus credit per value of one dimension key, over the entry sides that fall on accounts of the given type, or on every account when no type is given, in which case each entry nets to zero. Entries that do not carry the key are skipped. The period is optional; when given both bounds are required, and only entries whose occurred_at, or posted_at where that is absent, falls inside it count, start inclusive and end exclusive. Totals come sorted by value.",
+      "description": "Fold debit minus credit per value of one dimension key, over the entry sides that fall on accounts of the given type, or on every account when no type is given, in which case each entry nets to zero. Entries that do not carry the key are skipped, except that for the key neighbourhood the spending on an account whose budget line shares its cost is split over the line's neighbourhoods by their percents, whatever neighbourhood the entry names, with any remainder of a division going to the largest share. The period is optional; when given both bounds are required, and only entries whose occurred_at, or posted_at where that is absent, falls inside it count, start inclusive and end exclusive. Totals come sorted by value.",
       "args": [
         { "from": "query", "as": "key", "description": "The dimension key to total by." },
         { "from": "query", "as": "account_type", "description": "Only count entry sides on accounts of this type. Absent means every account." },
@@ -427,7 +427,7 @@
       "call": "DeleteBudget",
       "action": "accounting.budget.delete",
       "title": "Delete budget",
-      "description": "Delete one budget that nothing has been spent on: it is refused with 409 when any entry of its account falls inside its period. Returns the budget that was removed.",
+      "description": "Delete one budget that nothing has been spent on: it is refused with 409 when any entry of its account falls inside its period, or when a tender draws on it. Returns the budget that was removed.",
       "args": [
         {
           "from": "path",
@@ -654,6 +654,301 @@
           "body": true
         }
       ]
+    },
+    "list_budget_lines": {
+      "method": "GET",
+      "path": "/budgets",
+      "call": "ListBudgetLines",
+      "action": "accounting.budget.list",
+      "title": "List budget lines",
+      "description": "List budget lines, each with its name, department, period, planned amount and what was spent in that period so far. Spent is the account's balance over the period, debits minus credits, folded on every call. Narrow by account_id or department; limit caps the page.",
+      "args": [
+        {
+          "from": "query",
+          "whole": true
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "get_budget_line": {
+      "method": "GET",
+      "path": "/budgets/{budgetID}",
+      "call": "GetBudgetLine",
+      "action": "accounting.budget.read",
+      "title": "Read budget line",
+      "description": "Read one budget line by its id, with its planned amount and what was spent in its period so far.",
+      "args": [
+        {
+          "from": "path",
+          "as": "budgetID",
+          "description": "The budget line to read."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "list_reports": {
+      "method": "GET",
+      "path": "/reports",
+      "call": "ListReports",
+      "action": "accounting.report.list",
+      "title": "List financial reports",
+      "description": "List financial reports, one for each period that has budget lines, oldest period first. Each has a name, the period, its figures and its budget lines. The figures are the planned and spent totals and their difference, planned minus spent, the same split by department, and the closing balance of each account type at the period end, all folded on every call. Limit caps the page.",
+      "args": [
+        {
+          "from": "query",
+          "whole": true
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "get_report": {
+      "method": "GET",
+      "path": "/reports/period",
+      "call": "GetReport",
+      "action": "accounting.report.read",
+      "title": "Read financial report",
+      "description": "Read the financial report of one period: its name, figures and budget lines. The difference is planned minus spent. The period is named exactly as its budget lines were set.",
+      "args": [
+        {
+          "from": "query",
+          "as": "period_start",
+          "description": "The period's first instant, inclusive, exactly as the budget lines were set."
+        },
+        {
+          "from": "query",
+          "as": "period_end",
+          "description": "The period's end, exclusive, exactly as the budget lines were set."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "send_upward_report": {
+      "method": "POST",
+      "path": "/upward-reports",
+      "call": "SendUpwardReport",
+      "action": "accounting.upward_report.send",
+      "status": 201,
+      "title": "Send upward report",
+      "description": "Record that the report of one period was sent upward. The report is folded at that moment, the same one accounting_report_read gives, and one record is kept: its kind, the period, the planned, spent and difference totals as sent (the difference is planned minus spent), the department figures, when it was sent and who sent it. Kind is budget_and_actuals, which also keeps every budget line, or spending_by_department, which keeps the department figures only. Refused for any other kind, and for a period with no budget lines. A second send of the same period and kind is another record, never an edit. Nothing is transmitted over a network.",
+      "args": [
+        { "from": "body", "whole": true },
+        { "from": "caller", "as": "sent_by", "into": "SentBy", "description": "Who sent the report, supplied by the mount. Never read from the request." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "list_upward_reports": {
+      "method": "GET",
+      "path": "/upward-reports",
+      "call": "ListUpwardReports",
+      "action": "accounting.upward_report.list",
+      "title": "List upward reports",
+      "description": "List the reports sent upward, newest first, each with its kind, period, the planned, spent and difference totals as sent (the difference is planned minus spent), the department figures, the budget lines when the kind keeps them, when it was sent and who sent it. Limit caps the page.",
+      "args": [
+        { "from": "query", "whole": true }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "create_tender": {
+      "method": "POST",
+      "path": "/tenders",
+      "call": "CreateTender",
+      "action": "accounting.tender.create",
+      "status": 201,
+      "title": "Create tender",
+      "description": "Open a tender: what is to be bought and the budget line it draws on, with the date quotes close if there is one. Refused when the budget line does not exist.",
+      "args": [
+        { "from": "body", "whole": true },
+        { "from": "caller", "as": "created_by", "into": "CreatedBy", "description": "Who opened the tender, supplied by the mount. Never read from the request." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "list_tenders": {
+      "method": "GET",
+      "path": "/tenders",
+      "call": "ListTenders",
+      "action": "accounting.tender.list",
+      "title": "List tenders",
+      "description": "List tenders, oldest first, each with how many quotes it has and the lowest amount quoted. Narrow by budget_id; limit caps the page.",
+      "args": [
+        { "from": "query", "whole": true }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "get_tender": {
+      "method": "GET",
+      "path": "/tenders/{tenderID}",
+      "call": "GetTender",
+      "action": "accounting.tender.read",
+      "title": "Read tender",
+      "description": "Read one tender by its id, with how many quotes it has and the lowest amount quoted.",
+      "args": [
+        { "from": "path", "as": "tenderID", "description": "The tender to read." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "create_quote": {
+      "method": "POST",
+      "path": "/tenders/{tenderID}/quotes",
+      "call": "CreateQuote",
+      "action": "accounting.quote.create",
+      "status": 201,
+      "title": "Record quote",
+      "description": "Record one supplier's offer for a tender: who offers, the price in the smallest unit and what it includes. A supplier that changes its offer is recorded again as a new quote.",
+      "args": [
+        { "from": "body", "whole": true },
+        { "from": "path", "as": "tenderID", "into": "TenderID", "description": "The tender the quote answers. The address decides, not the body." },
+        { "from": "caller", "as": "quoted_by", "into": "QuotedBy", "description": "Who recorded the quote, supplied by the mount. Never read from the request." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "update_bill": {
+      "method": "PATCH",
+      "path": "/bills/{billID}",
+      "call": "UpdateBill",
+      "action": "accounting.bill.update",
+      "title": "Correct bill",
+      "description": "Correct a bill that is not yet settled: send its payer, payer_actor_id (the payer's person id), payer_record_row_id (the payer's business or trader record row id), amount, due_at and narration as they should now read; a correction that leaves payer_actor_id or payer_record_row_id out clears that link. A bill that already has a payment keeps its amount, and a settled or reversed bill is refused.",
+      "args": [
+        {"from": "body", "whole": true},
+        {"from": "path", "as": "billID", "into": "ID", "description": "The bill to correct."}
+      ],
+      "returns": [{"body": true}]
+    },
+    "update_tender": {
+      "method": "PATCH",
+      "path": "/tenders/{tenderID}",
+      "call": "UpdateTender",
+      "action": "accounting.tender.update",
+      "title": "Correct tender",
+      "description": "Correct a tender before its closing date: send its title, description and closes_at as they should now read. The budget line it draws on stays as recorded. Refused once the tender has closed.",
+      "args": [
+        {"from": "body", "whole": true},
+        {"from": "path", "as": "tenderID", "into": "ID", "description": "The tender to correct."}
+      ],
+      "returns": [{"body": true}]
+    },
+    "update_quote": {
+      "method": "PATCH",
+      "path": "/quotes/{quoteID}",
+      "call": "UpdateQuote",
+      "action": "accounting.quote.update",
+      "title": "Correct quote",
+      "description": "Correct one supplier's quote before its tender closes: send the supplier, the price in the smallest unit, the note and valid_until as they should now read. Refused once the tender has closed.",
+      "args": [
+        {"from": "body", "whole": true},
+        {"from": "path", "as": "quoteID", "into": "ID", "description": "The quote to correct."}
+      ],
+      "returns": [{"body": true}]
+    },
+    "list_quotes": {
+      "method": "GET",
+      "path": "/tenders/{tenderID}/quotes",
+      "call": "ListQuotes",
+      "action": "accounting.quote.list",
+      "title": "List quotes",
+      "description": "List the quotes offered for one tender, lowest price first.",
+      "args": [
+        { "from": "path", "as": "tenderID", "description": "The tender whose quotes to list." },
+        { "from": "query", "as": "limit", "description": "Cap the quotes returned. Zero or absent means the default page." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "create_bill": {
+      "method": "POST",
+      "path": "/bills",
+      "call": "CreateBill",
+      "action": "accounting.bill.create",
+      "status": 201,
+      "title": "Create bill",
+      "description": "Raise a bill: an amount owed to an income account, due on a date. It is posted as a debit to the receivable account and a credit to the income account, with due_at set, so the overdue read ages it. Name the income account, the receivable account (an asset account), the amount, due_at and, if known, the payer (display text) payer_actor_id (the payer's person id, a uuid; bills can then be listed by actor_id) and payer_record_row_id (the payer's business or informal trader record row id, a uuid; bills can then be listed by record_row_id). A payment settles a bill by naming it in settles_entry_id.",
+      "args": [
+        { "from": "body", "whole": true },
+        { "from": "caller", "as": "billed_by", "into": "BilledBy", "description": "Who raised the bill, supplied by the mount. Never read from the request." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "list_bills": {
+      "method": "GET",
+      "path": "/bills",
+      "call": "ListBills",
+      "action": "accounting.bill.list",
+      "title": "List bills",
+      "description": "List bills by due date, each with its amount, what was settled, what is outstanding and its status: open, overdue (past due_at as of as_of, default now, and not fully settled), settled or reversed. Narrow by income_account_id, status, payer (the name as written) actor_id (the payer's person id, set as payer_actor_id when the bill was raised) or record_row_id (a business or trader record row id, set as payer_record_row_id when the bill was raised; bills raised against an older row it replaced are listed too); limit caps the page.",
+      "args": [
+        { "from": "query", "whole": true }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "get_bill": {
+      "method": "GET",
+      "path": "/bills/{billID}",
+      "call": "GetBill",
+      "action": "accounting.bill.read",
+      "title": "Read bill",
+      "description": "Read one bill by its id, with what was settled against it, what is outstanding and its status as of now.",
+      "args": [
+        { "from": "path", "as": "billID", "description": "The bill to read." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "mark_bill_paid": {
+      "method": "POST",
+      "path": "/bills/{billID}/payments",
+      "call": "MarkBillPaid",
+      "action": "accounting.payment.mark_paid",
+      "status": 201,
+      "title": "Mark bill paid",
+      "description": "Record that a bill was paid: posts a debit to the cash account (an asset account) and a credit to the bill's receivable account, naming the bill in settles_entry_id, so the bill reads as settled. The payment carries the bill's payer, payer_actor_id and payer_record_row_id. Leave amount out to pay what is outstanding; a smaller amount is a part payment. Refused when the bill is already settled or reversed, or the amount is more than is outstanding. paid_on is when the money arrived, if not now, and is refused when it is in the future; method (how it was paid, such as cash or bank transfer) and reference are kept with the payment and listed back.",
+      "args": [
+        { "from": "body", "whole": true },
+        { "from": "path", "as": "billID", "into": "BillID", "description": "The bill paid. The address decides, not the body." },
+        { "from": "caller", "as": "paid_by", "into": "PaidBy", "description": "Who recorded the payment, supplied by the mount. Never read from the request." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "list_payments": {
+      "method": "GET",
+      "path": "/payments",
+      "call": "ListPayments",
+      "action": "accounting.payment.list",
+      "title": "List payments",
+      "description": "List payments, oldest first: the payments that settled bills (kind bill, each naming its bill_id) and the milestone payment certificates (kind certificate, each naming its certificate, milestone and contract, the amount being what was paid after retention). A reversed payment is left out. Narrow by kind, bill_id, payer (the name as written) actor_id (the payer's person id) or record_row_id (a business or trader record row id; bills against an older row it replaced are listed too); certificate payments carry none of these and are left out when one is named; limit caps the page.",
+      "args": [
+        { "from": "query", "whole": true }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "dimension_entries": {
+      "method": "GET",
+      "path": "/dimension-entries",
+      "call": "DimensionEntries",
+      "action": "accounting.dimension.entries",
+      "title": "List the entries of one dimension value",
+      "description": "Every entry whose dimensions carry the given key with exactly the given value, across all accounts, each with the day it happened (occurred_at, or posted_at where that is absent), its amount on the entry sides that fall on accounts of the given type (debit minus credit; every account when no type is given), its narration and the category of the account it fell on, newest first. The period is optional; when given both bounds are required, start inclusive and end exclusive.",
+      "args": [
+        { "from": "query", "as": "key", "description": "The dimension key to read by." },
+        { "from": "query", "as": "value", "description": "The value that key must carry." },
+        { "from": "query", "as": "account_type", "description": "Only count entry sides on accounts of this type. Absent means every account." },
+        { "from": "query", "as": "period_start", "description": "The period's first instant, inclusive. Required with period_end." },
+        { "from": "query", "as": "period_end", "description": "The period's end, exclusive. Required with period_start." }
+      ],
+      "returns": [{ "body": true }]
     }
   },
   "errors": {
@@ -669,6 +964,8 @@
     "ErrFigureTaken": 409,
     "ErrBudgetLineInUse": 409,
     "ErrOverDaysBought": 409,
-    "ErrDayEntryDecided": 409
+    "ErrDayEntryDecided": 409,
+    "ErrLocked": 409,
+    "ErrBudgetLineExists": 409
   }
 }

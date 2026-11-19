@@ -9,6 +9,16 @@ type LedgerRepository interface {
 
 	DayRepository
 
+	ProcurementRepository
+
+	ReportRepository
+
+	UpwardReportRepository
+
+	BillRepository
+
+	PaymentRepository
+
 	OpenAccount(ctx context.Context, a Account) (Account, error)
 
 	GetAccount(ctx context.Context, id string) (Account, error)
@@ -27,6 +37,10 @@ type LedgerRepository interface {
 
 	DeleteBudget(ctx context.Context, id string) (Budget, error)
 
+	ListBudgetLines(ctx context.Context, filter BudgetLineFilter) ([]BudgetLine, error)
+
+	GetBudgetLine(ctx context.Context, id string) (BudgetLine, error)
+
 	Variance(ctx context.Context, accountID, periodStart, periodEnd string) (Variance, error)
 
 	Overdue(ctx context.Context, accountID, asOf, ageFrom string) (Overdue, error)
@@ -36,6 +50,8 @@ type LedgerRepository interface {
 	DimensionBalance(ctx context.Context, accountID, key, value string) (int64, error)
 
 	DimensionTotals(ctx context.Context, key, accountType, periodStart, periodEnd string) (DimensionTotals, error)
+
+	DimensionEntries(ctx context.Context, key, value, accountType, periodStart, periodEnd string) (DimensionEntries, error)
 
 	AppendFigure(ctx context.Context, f Figure) (Figure, error)
 

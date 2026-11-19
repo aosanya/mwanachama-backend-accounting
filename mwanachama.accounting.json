@@ -50,6 +50,24 @@
       "name": "day_entry",
       "table": "day_entries",
       "description": "A consultant's days worked on a project on one date, submitted and then approved or rejected."
+    },
+    {
+      "role": "tender",
+      "name": "tender",
+      "table": "tenders",
+      "description": "A request to buy something against a budget line, answered by quotes."
+    },
+    {
+      "role": "quote",
+      "name": "quote",
+      "table": "quotes",
+      "description": "One supplier's offer for a tender."
+    },
+    {
+      "role": "upward_report",
+      "name": "upward_report",
+      "table": "upward_reports",
+      "description": "A financial report as it stood when it was sent upward."
     }
   ]
 }

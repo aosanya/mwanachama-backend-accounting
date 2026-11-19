@@ -27,8 +27,16 @@ func NewLedgerRepository(db *gorm.DB, s *spec.Spec) (LedgerRepository, error) {
 		roleMilestone:   models.Milestone{},
 		roleCertificate: models.Certificate{},
 	}
-	if _, ok := s.ByRole(roleFigure); ok {
-		carriers[roleFigure] = models.Figure{}
+	optional := map[string]any{
+		roleFigure:       models.Figure{},
+		roleTender:       models.Tender{},
+		roleQuote:        models.Quote{},
+		roleUpwardReport: models.UpwardReport{},
+	}
+	for role, carrier := range optional {
+		if _, ok := s.ByRole(role); ok {
+			carriers[role] = carrier
+		}
 	}
 	addDayCarriers(s, carriers)
 	st, err := newStore(db, s, carriers)

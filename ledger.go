@@ -9,21 +9,30 @@ import (
 )
 
 type (
-	Account         = models.Account
-	Entry           = models.Entry
-	AccountType     = models.AccountType
-	AccountCategory = models.AccountCategory
-	DocumentKind    = models.DocumentKind
-	Budget          = models.Budget
-	Variance        = models.Variance
-	DimensionTotal  = models.DimensionTotal
-	DimensionTotals = models.DimensionTotals
-	OverdueEntry    = models.OverdueEntry
-	Overdue         = models.Overdue
-	Milestone       = models.Milestone
-	Certificate     = models.Certificate
-	AgeBasis        = models.AgeBasis
+	Account          = models.Account
+	Entry            = models.Entry
+	AccountType      = models.AccountType
+	AccountCategory  = models.AccountCategory
+	DocumentKind     = models.DocumentKind
+	Budget           = models.Budget
+	BudgetLine       = models.BudgetLine
+	Variance         = models.Variance
+	DimensionTotal   = models.DimensionTotal
+	DimensionTotals  = models.DimensionTotals
+	DimensionEntry   = models.DimensionEntry
+	DimensionEntries = models.DimensionEntries
+	OverdueEntry     = models.OverdueEntry
+	Overdue          = models.Overdue
+	Milestone        = models.Milestone
+	Certificate      = models.Certificate
+	AgeBasis         = models.AgeBasis
 )
+
+type BudgetLineFilter struct {
+	AccountID  string `query:"account_id"`
+	Department string `query:"department"`
+	Limit      int    `query:"limit"`
+}
 
 const (
 	AgeFromDue    = models.AgeFromDue
