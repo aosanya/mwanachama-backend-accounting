@@ -29,6 +29,8 @@ var sentinels = map[string]error{
 	"ErrRetentionReleased": accounting.ErrRetentionReleased,
 	"ErrFigureTaken":       accounting.ErrFigureTaken,
 	"ErrBudgetLineInUse":   accounting.ErrBudgetLineInUse,
+	"ErrOverDaysBought":    accounting.ErrOverDaysBought,
+	"ErrDayEntryDecided":   accounting.ErrDayEntryDecided,
 }
 
 type Mount struct {

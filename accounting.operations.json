@@ -440,6 +440,220 @@
           "body": true
         }
       ]
+    },
+    "add_day_allowance": {
+      "method": "POST",
+      "path": "/day-allowances",
+      "call": "AddDayAllowance",
+      "action": "accounting.day_allowance.create",
+      "status": 201,
+      "title": "Add day allowance",
+      "description": "Record the days bought for one consultant on one project: the days in hundredths of a day, the fee for a day, and an optional period. A consultant has one current allowance on a project; a change goes through replace_day_allowance, never a second row. Refused when the consultant already holds one.",
+      "args": [
+        {
+          "from": "body",
+          "whole": true
+        },
+        {
+          "from": "caller",
+          "as": "set_by",
+          "into": "SetBy",
+          "description": "Who set the allowance, supplied by the mount. Never read from the request."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "replace_day_allowance": {
+      "method": "POST",
+      "path": "/day-allowances/{allowanceID}/replace",
+      "call": "ReplaceDayAllowance",
+      "action": "accounting.day_allowance.replace",
+      "status": 201,
+      "title": "Replace day allowance",
+      "description": "Change the days bought by writing a new row that names the current row it replaces and says why. The old row stays as history. The replaced row must be the consultant's current one on the same project, and a reason is required.",
+      "args": [
+        {
+          "from": "body",
+          "whole": true
+        },
+        {
+          "from": "path",
+          "as": "allowanceID",
+          "into": "ReplacesID",
+          "description": "The allowance row replaced. The address decides, not the body."
+        },
+        {
+          "from": "caller",
+          "as": "set_by",
+          "into": "SetBy",
+          "description": "Who changed the allowance, supplied by the mount. Never read from the request."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "list_day_allowances": {
+      "method": "GET",
+      "path": "/projects/{project}/day-allowances",
+      "call": "ListDayAllowances",
+      "action": "accounting.day_allowance.list",
+      "title": "List day allowances",
+      "description": "Read every allowance row of one project, the replaced ones included, oldest first.",
+      "args": [
+        {
+          "from": "path",
+          "as": "project",
+          "description": "The project."
+        },
+        {
+          "from": "query",
+          "as": "limit",
+          "description": "Cap the rows returned. Zero or absent means the default page."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "submit_day_entry": {
+      "method": "POST",
+      "path": "/day-entries",
+      "call": "SubmitDayEntry",
+      "action": "accounting.day_entry.submit",
+      "status": 201,
+      "title": "Submit day entry",
+      "description": "Record days worked by one consultant on one project on one date, in hundredths of a day. It starts submitted and counts toward nothing until it is approved.",
+      "args": [
+        {
+          "from": "body",
+          "whole": true
+        },
+        {
+          "from": "caller",
+          "as": "submitted_by",
+          "into": "SubmittedBy",
+          "description": "Who submitted the entry, supplied by the mount. Never read from the request."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "approve_day_entry": {
+      "method": "POST",
+      "path": "/day-entries/{entryID}/approve",
+      "call": "ApproveDayEntry",
+      "action": "accounting.day_entry.approve",
+      "title": "Approve day entry",
+      "description": "Approve a submitted entry. Refused with 409 when the consultant's approved days would pass the days bought on the project, or when the consultant holds no allowance there, until a replacing allowance row raises the days. Refused when the entry was already decided.",
+      "args": [
+        {
+          "from": "path",
+          "as": "entryID",
+          "description": "The entry to approve."
+        },
+        {
+          "from": "caller",
+          "as": "decided_by",
+          "description": "Who approved the entry, supplied by the mount. Never read from the request."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "reject_day_entry": {
+      "method": "POST",
+      "path": "/day-entries/{entryID}/reject",
+      "call": "RejectDayEntry",
+      "action": "accounting.day_entry.reject",
+      "title": "Reject day entry",
+      "description": "Reject a submitted entry. A rejected entry counts toward nothing. Refused when the entry was already decided.",
+      "args": [
+        {
+          "from": "path",
+          "as": "entryID",
+          "description": "The entry to reject."
+        },
+        {
+          "from": "caller",
+          "as": "decided_by",
+          "description": "Who rejected the entry, supplied by the mount. Never read from the request."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "list_day_entries": {
+      "method": "GET",
+      "path": "/projects/{project}/day-entries",
+      "call": "ListDayEntries",
+      "action": "accounting.day_entry.list",
+      "title": "List day entries",
+      "description": "Read the day entries of one project, oldest worked date first, narrowed by consultant and by status when given.",
+      "args": [
+        {
+          "from": "path",
+          "as": "project",
+          "description": "The project."
+        },
+        {
+          "from": "query",
+          "as": "consultant",
+          "description": "Only this consultant's entries."
+        },
+        {
+          "from": "query",
+          "as": "status",
+          "description": "Only entries with this status: submitted, approved or rejected."
+        },
+        {
+          "from": "query",
+          "as": "limit",
+          "description": "Cap the entries returned. Zero or absent means the default page."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
+    },
+    "days_balance": {
+      "method": "GET",
+      "path": "/projects/{project}/days-balance",
+      "call": "DaysBalance",
+      "action": "accounting.days.balance",
+      "title": "Read days balance",
+      "description": "For one project, per consultant and position: the days bought, the days submitted and still awaiting a decision, the days approved, the days left, the fee approved days come to at the rate, the fee ceiling the days bought come to, and the fee left. A total line sums them. Days are hundredths of a day. Only the current allowance row of each consultant counts.",
+      "args": [
+        {
+          "from": "path",
+          "as": "project",
+          "description": "The project."
+        }
+      ],
+      "returns": [
+        {
+          "body": true
+        }
+      ]
     }
   },
   "errors": {
@@ -453,6 +667,8 @@
     "ErrRetentionHeld": 409,
     "ErrRetentionReleased": 409,
     "ErrFigureTaken": 409,
-    "ErrBudgetLineInUse": 409
+    "ErrBudgetLineInUse": 409,
+    "ErrOverDaysBought": 409,
+    "ErrDayEntryDecided": 409
   }
 }

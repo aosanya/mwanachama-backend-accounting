@@ -553,6 +553,197 @@
           "unique": true
         }
       ]
+    },
+    {
+      "role": "day_allowance",
+      "description": "Days bought for one consultant on one project: how many, at what rate, over what period. Append-only. A change of days is a new row that names the row it replaces and says why; the old row stays as history. Days are whole hundredths of a day, so 100 is one day.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "project",
+          "type": "string",
+          "description": "The project the days are bought for. An opaque code the caller supplies; this module never reads it for meaning.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "consultant",
+          "type": "string",
+          "description": "The consultant the days are bought for. An opaque id or name the caller supplies.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "position",
+          "type": "string",
+          "description": "The position the consultant fills on the project, such as team leader. A label for reading the balance.",
+          "immutable": true
+        },
+        {
+          "name": "days_bought",
+          "type": "int",
+          "description": "The days bought, in whole hundredths of a day. Positive.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "rate",
+          "type": "int",
+          "description": "The fee for one day, in minor units of the working currency. Zero or more.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "period_start",
+          "type": "timestamp",
+          "description": "The first instant the allowance covers, as an RFC 3339 instant. Absent when no period is set.",
+          "immutable": true
+        },
+        {
+          "name": "period_end",
+          "type": "timestamp",
+          "description": "The end of the period, exclusive. Absent when no period is set.",
+          "immutable": true
+        },
+        {
+          "name": "replaces_id",
+          "type": "string",
+          "description": "The allowance row this one replaces. Absent on the first row for a consultant on a project.",
+          "immutable": true
+        },
+        {
+          "name": "reason",
+          "type": "text",
+          "description": "Why the days changed. Required when the row replaces another.",
+          "immutable": true
+        },
+        {
+          "name": "set_by",
+          "type": "string",
+          "description": "Who set the allowance, supplied by the mount.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "set_at",
+          "type": "timestamp",
+          "description": "When the row was written. Written by the store, never by a caller.",
+          "immutable": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "project",
+          "description": "Lists the allowance rows of one project and finds the rows of one consultant on it.",
+          "fields": [
+            "project",
+            "consultant"
+          ]
+        },
+        {
+          "name": "replaces",
+          "description": "Finds the row that replaced a given row.",
+          "fields": [
+            "replaces_id"
+          ]
+        }
+      ]
+    },
+    {
+      "role": "day_entry",
+      "description": "One consultant's days worked on one project on one date, in whole hundredths of a day. It starts submitted and is then approved or rejected once. An approval that would take the consultant's approved days past the days bought is refused until a replacing allowance row raises them.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "project",
+          "type": "string",
+          "description": "The project the days were worked on.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "consultant",
+          "type": "string",
+          "description": "The consultant who worked them.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "worked_on",
+          "type": "string",
+          "description": "The date worked, written YYYY-MM-DD and a day that exists.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "days",
+          "type": "int",
+          "description": "The days worked, in whole hundredths of a day. Positive.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "description",
+          "type": "text",
+          "description": "What was done in those days.",
+          "immutable": true
+        },
+        {
+          "name": "status",
+          "type": "enum",
+          "description": "Where the entry stands. Starts submitted and moves once to approved or rejected.",
+          "required": true,
+          "values": [
+            "submitted",
+            "approved",
+            "rejected"
+          ]
+        },
+        {
+          "name": "submitted_by",
+          "type": "string",
+          "description": "Who submitted the entry, supplied by the mount.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "submitted_at",
+          "type": "timestamp",
+          "description": "When the entry was submitted. Written by the store, never by a caller.",
+          "immutable": true
+        },
+        {
+          "name": "decided_by",
+          "type": "string",
+          "description": "Who approved or rejected the entry. Absent while submitted."
+        },
+        {
+          "name": "decided_at",
+          "type": "timestamp",
+          "description": "When it was decided. Absent while submitted."
+        }
+      ],
+      "indexes": [
+        {
+          "name": "project",
+          "description": "Lists the entries of one project and sums those of one consultant by status.",
+          "fields": [
+            "project",
+            "consultant",
+            "status"
+          ]
+        }
+      ]
     }
   ]
 }

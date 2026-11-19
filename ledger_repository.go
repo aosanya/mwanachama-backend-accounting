@@ -7,6 +7,8 @@ const DefaultPage = 200
 type LedgerRepository interface {
 	ContractRepository
 
+	DayRepository
+
 	OpenAccount(ctx context.Context, a Account) (Account, error)
 
 	GetAccount(ctx context.Context, id string) (Account, error)

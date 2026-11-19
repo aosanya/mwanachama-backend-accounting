@@ -30,6 +30,7 @@ func NewLedgerRepository(db *gorm.DB, s *spec.Spec) (LedgerRepository, error) {
 	if _, ok := s.ByRole(roleFigure); ok {
 		carriers[roleFigure] = models.Figure{}
 	}
+	addDayCarriers(s, carriers)
 	st, err := newStore(db, s, carriers)
 	if err != nil {
 		return nil, fmt.Errorf("NewLedgerRepository: %w", err)

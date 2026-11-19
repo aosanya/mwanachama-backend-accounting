@@ -21,9 +21,9 @@ func blueprint(t *testing.T) *spec.Blueprint {
 	return b
 }
 
-func TestBlueprintDeclaresItsSixRoles(t *testing.T) {
+func TestBlueprintDeclaresItsEightRoles(t *testing.T) {
 	got := blueprint(t).Roles()
-	want := []string{"account", "budget", "certificate", "entry", "figure", "milestone"}
+	want := []string{"account", "budget", "certificate", "day_allowance", "day_entry", "entry", "figure", "milestone"}
 	if len(got) != len(want) {
 		t.Fatalf("roles = %v, want %v", got, want)
 	}

@@ -38,6 +38,18 @@
       "name": "figure_entry",
       "table": "figure_entries",
       "description": "One figure that is not money, such as a ratio or a score a calculating step worked out, kept for a member on a day with how it was worked out."
+    },
+    {
+      "role": "day_allowance",
+      "name": "day_allowance",
+      "table": "day_allowances",
+      "description": "The days bought for one consultant on one project, with the fee for a day. A change is a new row that names the one it replaces."
+    },
+    {
+      "role": "day_entry",
+      "name": "day_entry",
+      "table": "day_entries",
+      "description": "A consultant's days worked on a project on one date, submitted and then approved or rejected."
     }
   ]
 }
