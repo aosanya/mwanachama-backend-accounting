@@ -53,23 +53,39 @@ account.
   consumer, not a ledger rule, and is left open.
 - No listing of budgets; a budget is replaced, not listed. A budget can be deleted only while nothing has been spent in its period (see below).
 
-## Deleting a budget (MUN1472)
+## Deleting a budget line (MUN1472)
 
-Appended to `accounting.operations.json` as `withdraw_budget`, a name that
-sorts after every existing one so a mount that indexes `Shape()` keeps its
-positions.
+`delete_budget_line` sorts before `dimension_entries` and after the create
+operations, so a mount that indexes `Shape()` reads the table again after the
+tag.
 
-- `withdraw_budget` — `DELETE /budgets/{budgetID}`, action
-  `accounting.budget.delete`. Removes one budget and answers the budget that
-  was removed. A missing id is `ErrNotFound` (404). It is refused with
-  `ErrBudgetLineInUse` (409) when any entry of the budget's account falls
-  inside its period, by the same `occurred_at`-or-`posted_at` rule the
-  variance uses, so history is never dropped from under a figure. Nothing
-  else changes: the entries stay, and the same account and period can be set
-  again afterwards.
-- This repo has no tenders, so spending is the only refusal here. The hub copy
-  also refuses a line a tender draws on and takes an optional `version`
-  (the line's `set_at`) as the other hub updates do.
+- `delete_budget_line` — `DELETE /budgets/{budgetID}`, action
+  `accounting.budget.delete`, call `DeleteBudgetLine(ctx, id, version)`.
+  Removes one budget line and answers the line that was removed (`name`,
+  `department`, `planned`, `spent`, `follow_milestones`, `cost_shares`). A
+  missing id is `ErrNotFound` (404). It is refused with `ErrBudgetLineInUse`
+  (409) when any entry of the line's account falls inside its period, by the
+  same `occurred_at`-or-`posted_at` rule the variance uses, so history is
+  never dropped from under a figure, and while a tender draws on the line.
+  Nothing else changes: the entries stay, and the same account and period can
+  be set again afterwards.
+- `version` is an optional query argument, the `set_at` of the line as it was
+  read. Absent means no check; a version that is not the stored `set_at` to
+  the second is `ErrStale` (409) naming `record`.
+
+## Version check on a budget line
+
+`set_budget` takes an optional `version` in the body with the same meaning.
+When the line already exists and the version is not its stored `set_at`, the
+save is refused with `ErrStale` (409) naming the first of `name`,
+`department` and `amount` that differs from what is stored, or `name` when
+none does. A refused save changes nothing. A line that does not exist yet has
+nothing to be stale against. The version is never stored.
+
+The check is `internal/versioncheck`, a copy of the package the hub keeps in
+its own shared copy. When `mwanachama-backend-shared` publishes it, the copy
+is deleted and the imports switch; `ErrStale` maps by type, so the wire does
+not change.
 
 ## Shared cost between neighbourhoods (MUN1409)
 

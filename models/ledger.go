@@ -38,6 +38,7 @@ type Budget struct {
 	Amount      int64  `json:"amount"`
 	SetAt       string `json:"set_at"`
 	Create      bool   `json:"create,omitempty" spec:"-"`
+	Version     string `json:"version,omitempty" spec:"-"`
 
 	FollowMilestones bool             `json:"follow_milestones,omitempty"`
 	CostShares       map[string]int64 `json:"cost_shares,omitempty"`

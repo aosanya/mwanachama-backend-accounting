@@ -181,3 +181,50 @@ func TestAPaymentDatedInTheFutureIsRefused(t *testing.T) {
 		t.Fatalf("err %v", err)
 	}
 }
+
+func TestReversingAPaymentRestoresWhatTheBillOwesAndLeavesTheOriginalInTheLedger(t *testing.T) {
+	f := newStoreFixture(t)
+	rec := f.receivable(t)
+	b := f.bill(t, rec, "stall-7", 900, "2999-01-01T00:00:00Z")
+	paid := f.markPaid(t, b, 400)
+
+	reversed, err := f.repo.ReversePayment(f.bg, accounting.ReversePaymentInput{PaymentID: paid.ID, Narration: "Entered twice", ReversedBy: "clerk-3"})
+	if err != nil || reversed.ID != paid.ID {
+		t.Fatalf("reversed %+v %v", reversed, err)
+	}
+	got, err := f.repo.GetBill(f.bg, b.ID)
+	if err != nil || got.Outstanding != 900 || got.Settled != 0 || got.Status != "open" {
+		t.Fatalf("bill %+v %v", got, err)
+	}
+	listed, err := f.repo.ListPayments(f.bg, accounting.PaymentFilter{BillID: b.ID})
+	if err != nil || len(listed) != 0 {
+		t.Fatalf("listed %+v %v", listed, err)
+	}
+	entries, err := f.repo.ListEntries(f.bg, f.cash.ID, 0)
+	if err != nil || len(entries) != 2 || entries[1].ReversesEntryID != paid.ID || entries[1].ActorID != "clerk-3" || entries[1].Narration != "Entered twice" {
+		t.Fatalf("entries %+v %v", entries, err)
+	}
+}
+
+func TestAPaymentIsReversedOnceAndOnlyAPaymentIsReversed(t *testing.T) {
+	f := newStoreFixture(t)
+	rec := f.receivable(t)
+	b := f.bill(t, rec, "stall-7", 900, "2999-01-01T00:00:00Z")
+	paid := f.markPaid(t, b, 400)
+	if _, err := f.repo.ReversePayment(f.bg, accounting.ReversePaymentInput{PaymentID: paid.ID, ReversedBy: "clerk-3"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := f.repo.ReversePayment(f.bg, accounting.ReversePaymentInput{PaymentID: paid.ID, ReversedBy: "clerk-3"}); !errors.Is(err, accounting.ErrAlreadyReversed) {
+		t.Fatalf("twice: %v", err)
+	}
+	if _, err := f.repo.ReversePayment(f.bg, accounting.ReversePaymentInput{PaymentID: b.ID, ReversedBy: "clerk-3"}); !errors.Is(err, accounting.ErrInvalid) {
+		t.Fatalf("a bill is not a payment: %v", err)
+	}
+	if _, err := f.repo.ReversePayment(f.bg, accounting.ReversePaymentInput{PaymentID: "nope", ReversedBy: "clerk-3"}); !errors.Is(err, accounting.ErrNotFound) {
+		t.Fatalf("unknown: %v", err)
+	}
+	if _, err := f.repo.ReversePayment(f.bg, accounting.ReversePaymentInput{PaymentID: paid.ID}); !errors.Is(err, accounting.ErrInvalid) {
+		t.Fatalf("no reversed_by: %v", err)
+	}
+}

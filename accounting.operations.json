@@ -151,7 +151,7 @@
       "call": "SetBudget",
       "action": "accounting.budget.set",
       "title": "Set budget",
-      "description": "Set one budget line: what one account is expected to hold over one period, with a name and the department it belongs to. Setting it again for the same account and period replaces the name, department, amount, follow_milestones and cost_shares, so send them back unchanged to keep them; follow_milestones true makes a reader show the line's milestones and payment certificates, and cost_shares, a neighbourhood name to a whole percent that add up to 100, spreads the line's spending over those neighbourhoods in the totals by neighbourhood, where absent each spending entry stays with the neighbourhood it names; send create true when adding a new line, to be refused when that account and period already hold one. The period runs from period_start, inclusive, to period_end, exclusive.",
+      "description": "Set one budget line: what one account is expected to hold over one period, with a name and the department it belongs to. Setting it again for the same account and period replaces the name, department, amount, follow_milestones and cost_shares, so send them back unchanged to keep them; follow_milestones true makes a reader show the line's milestones and payment certificates, and cost_shares, a neighbourhood name to a whole percent that add up to 100, spreads the line's spending over those neighbourhoods in the totals by neighbourhood, where absent each spending entry stays with the neighbourhood it names; send version, the set_at you read, to be refused when the line has changed since; send create true when adding a new line, to be refused when that account and period already hold one. The period runs from period_start, inclusive, to period_end, exclusive.",
       "args": [
         {
           "from": "body",
@@ -421,18 +421,23 @@
       ],
       "returns": [{ "body": true }]
     },
-    "withdraw_budget": {
+    "delete_budget_line": {
       "method": "DELETE",
       "path": "/budgets/{budgetID}",
-      "call": "DeleteBudget",
+      "call": "DeleteBudgetLine",
       "action": "accounting.budget.delete",
-      "title": "Delete budget",
-      "description": "Delete one budget that nothing has been spent on: it is refused with 409 when any entry of its account falls inside its period, or when a tender draws on it. Returns the budget that was removed.",
+      "title": "Delete budget line",
+      "description": "Delete one budget line that nothing has been spent on: it is refused with 409 when any entry of its account falls inside its period, or when a tender draws on it. Send version, the set_at you read, to be refused when the line has changed since. Returns the line that was removed.",
       "args": [
         {
           "from": "path",
           "as": "budgetID",
-          "description": "The budget to delete."
+          "description": "The budget line to delete."
+        },
+        {
+          "from": "query",
+          "as": "version",
+          "description": "The set_at of the line as you read it; the delete is refused when the line has changed since. Absent means no check."
         }
       ],
       "returns": [
@@ -922,6 +927,21 @@
       ],
       "returns": [{ "body": true }]
     },
+    "reverse_payment": {
+      "method": "POST",
+      "path": "/payments/{paymentID}/reversal",
+      "call": "ReversePayment",
+      "action": "accounting.payment.reverse",
+      "status": 201,
+      "title": "Reverse payment",
+      "description": "Reverse one payment of a bill that was recorded by mistake or in the wrong amount: a new line is posted that undoes it and names it in reverses_entry_id, so the bill owes what it owed before and the payment is left out of the list of payments. The original stays in the ledger, nothing is deleted. A payment is reversed once, only a payment of a bill can be reversed, and the line records who reversed it and the narration, if one is given.",
+      "args": [
+        { "from": "body", "whole": true },
+        { "from": "path", "as": "paymentID", "into": "PaymentID", "description": "The payment reversed. The address decides, not the body." },
+        { "from": "caller", "as": "reversed_by", "into": "ReversedBy", "description": "Who reversed the payment, supplied by the mount. Never read from the request." }
+      ],
+      "returns": [{ "body": true }]
+    },
     "list_payments": {
       "method": "GET",
       "path": "/payments",
@@ -968,6 +988,7 @@
     "ErrOwnDayEntry": 409,
     "ErrDateOverfull": 409,
     "ErrLocked": 409,
+    "ErrStale": 409,
     "ErrBudgetLineExists": 409
   }
 }

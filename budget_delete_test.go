@@ -7,78 +7,114 @@ import (
 	accounting "github.com/aosanya/mwanachama-backend-accounting"
 )
 
-func TestABudgetWithNothingSpentInItsPeriodIsDeletedAndReturned(t *testing.T) {
-	r, ctx := newLedger(t)
-	pool := openPool(t, r, "p1")
-	set, err := r.SetBudget(ctx, accounting.Budget{AccountID: pool.ID, PeriodStart: periodStart, PeriodEnd: periodEnd, Amount: 500})
-	if err != nil {
-		t.Fatalf("SetBudget: %v", err)
-	}
+func TestABudgetLineWithNothingSpentIsDeletedAndReturned(t *testing.T) {
+	f := newStoreFixture(t)
+	line := f.setLine(t, "Road repair", "Public works", 1000)
 
-	removed, err := r.DeleteBudget(ctx, set.ID)
+	removed, err := f.repo.DeleteBudgetLine(f.bg, line.ID, "")
 	if err != nil {
-		t.Fatalf("DeleteBudget: %v", err)
+		t.Fatalf("DeleteBudgetLine: %v", err)
 	}
-	if removed.ID != set.ID || removed.Amount != 500 {
-		t.Fatalf("removed %+v, want the budget %+v", removed, set)
+	if removed.ID != line.ID || removed.Name != "Road repair" || removed.Planned != 1000 {
+		t.Fatalf("removed %+v", removed)
 	}
-	if _, err := r.Variance(ctx, pool.ID, periodStart, periodEnd); !errors.Is(err, accounting.ErrNotFound) {
-		t.Fatalf("the budget is still there: %v", err)
+	if _, err := f.repo.GetBudgetLine(f.bg, line.ID); !errors.Is(err, accounting.ErrNotFound) {
+		t.Fatalf("the line is still there: %v", err)
+	}
+	lines, err := f.repo.ListBudgetLines(f.bg, accounting.BudgetLineFilter{})
+	if err != nil || len(lines) != 0 {
+		t.Fatalf("lines %+v %v", lines, err)
 	}
 }
 
-func TestADeletedBudgetLeavesRoomToSetTheSamePeriodAgain(t *testing.T) {
-	r, ctx := newLedger(t)
-	pool := openPool(t, r, "p1")
-	set, err := r.SetBudget(ctx, accounting.Budget{AccountID: pool.ID, PeriodStart: periodStart, PeriodEnd: periodEnd, Amount: 500})
-	if err != nil {
-		t.Fatalf("SetBudget: %v", err)
+func TestADeletedBudgetLineLeavesRoomToSetTheSamePeriodAgain(t *testing.T) {
+	f := newStoreFixture(t)
+	line := f.setLine(t, "Road repair", "Public works", 1000)
+	if _, err := f.repo.DeleteBudgetLine(f.bg, line.ID, ""); err != nil {
+		t.Fatalf("DeleteBudgetLine: %v", err)
 	}
-	if _, err := r.DeleteBudget(ctx, set.ID); err != nil {
-		t.Fatalf("DeleteBudget: %v", err)
-	}
-	again, err := r.SetBudget(ctx, accounting.Budget{AccountID: pool.ID, PeriodStart: periodStart, PeriodEnd: periodEnd, Amount: 800})
-	if err != nil || again.Amount != 800 || again.ID == set.ID {
+	again, err := f.repo.SetBudget(f.bg, accounting.Budget{
+		AccountID: f.rent.ID, PeriodStart: januaryStart, PeriodEnd: februaryStart,
+		Name: "Road repair", Department: "Public works", Amount: 900, Create: true,
+	})
+	if err != nil || again.Amount != 900 {
 		t.Fatalf("set again %+v %v", again, err)
 	}
 }
 
-func TestABudgetWithSpendingInItsPeriodIsRefusedAndKept(t *testing.T) {
-	r, ctx := newLedger(t)
-	pool := openPool(t, r, "p1")
-	holder := openHolder(t, r, "h1")
-	set, err := r.SetBudget(ctx, accounting.Budget{AccountID: pool.ID, PeriodStart: periodStart, PeriodEnd: periodEnd, Amount: 500})
-	if err != nil {
-		t.Fatalf("SetBudget: %v", err)
-	}
-	postAt(t, r, pool, holder, 300, "2026-01-15T12:00:00Z")
+func TestABudgetLineWithSpendingInItsPeriodIsRefusedAndKept(t *testing.T) {
+	f := newStoreFixture(t)
+	f.postAt(t, f.rent, f.cash, 300, accounting.Entry{OccurredAt: "2026-01-10T00:00:00Z"})
+	line := f.setLine(t, "Road repair", "Public works", 1000)
 
-	if _, err := r.DeleteBudget(ctx, set.ID); !errors.Is(err, accounting.ErrBudgetLineInUse) {
-		t.Fatalf("a budget with spending was removed or refused for another reason: %v", err)
+	if _, err := f.repo.DeleteBudgetLine(f.bg, line.ID, ""); !errors.Is(err, accounting.ErrBudgetLineInUse) {
+		t.Fatalf("a line with spending was removed or refused for another reason: %v", err)
 	}
-	if v, err := r.Variance(ctx, pool.ID, periodStart, periodEnd); err != nil || v.Budgeted != 500 {
-		t.Fatalf("the refused budget changed: %+v %v", v, err)
+	if got, err := f.repo.GetBudgetLine(f.bg, line.ID); err != nil || got.Spent != 300 {
+		t.Fatalf("the refused line changed: %+v %v", got, err)
 	}
 }
 
-func TestSpendingOutsideTheBudgetsPeriodDoesNotKeepIt(t *testing.T) {
-	r, ctx := newLedger(t)
-	pool := openPool(t, r, "p1")
-	holder := openHolder(t, r, "h1")
-	set, err := r.SetBudget(ctx, accounting.Budget{AccountID: pool.ID, PeriodStart: periodStart, PeriodEnd: periodEnd, Amount: 500})
-	if err != nil {
-		t.Fatalf("SetBudget: %v", err)
-	}
-	postAt(t, r, pool, holder, 900, "2026-02-01T00:00:00Z")
+func TestSpendingOutsideTheLinesPeriodDoesNotKeepTheLine(t *testing.T) {
+	f := newStoreFixture(t)
+	f.postAt(t, f.rent, f.cash, 9000, accounting.Entry{OccurredAt: "2026-02-03T00:00:00Z"})
+	line := f.setLine(t, "Road repair", "Public works", 1000)
 
-	if _, err := r.DeleteBudget(ctx, set.ID); err != nil {
-		t.Fatalf("spending in another period kept the budget: %v", err)
+	if _, err := f.repo.DeleteBudgetLine(f.bg, line.ID, ""); err != nil {
+		t.Fatalf("spending in another period kept the line: %v", err)
 	}
 }
 
-func TestDeletingAMissingBudgetIsNotFound(t *testing.T) {
-	r, ctx := newLedger(t)
-	if _, err := r.DeleteBudget(ctx, "missing"); !errors.Is(err, accounting.ErrNotFound) {
-		t.Fatalf("missing budget: %v", err)
+func TestABudgetLineATenderDrawsOnIsRefusedAndKept(t *testing.T) {
+	repo, line := procurementLedger(t)
+	if _, err := repo.CreateTender(t.Context(), accounting.Tender{BudgetID: line.ID, Title: "Resurfacing of Mill Street", CreatedBy: "clerk"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.DeleteBudgetLine(t.Context(), line.ID, ""); !errors.Is(err, accounting.ErrBudgetLineInUse) {
+		t.Fatalf("a line a tender draws on was removed or refused for another reason: %v", err)
+	}
+	if _, err := repo.GetBudgetLine(t.Context(), line.ID); err != nil {
+		t.Fatalf("the refused line is gone: %v", err)
+	}
+}
+
+func TestDeletingAMissingBudgetLineIsNotFound(t *testing.T) {
+	f := newStoreFixture(t)
+	if _, err := f.repo.DeleteBudgetLine(f.bg, "missing", ""); !errors.Is(err, accounting.ErrNotFound) {
+		t.Fatalf("missing line: %v", err)
+	}
+}
+
+func TestDeletingWithAnOldVersionIsRefusedAndKeepsTheLine(t *testing.T) {
+	f := newStoreFixture(t)
+	line := f.setLine(t, "Road repair", "Public works", 1000)
+
+	if _, err := f.repo.DeleteBudgetLine(f.bg, line.ID, "2020-01-01T00:00:00Z"); err == nil || err.Error() != "record changed since you read it" {
+		t.Fatalf("an old version was accepted or refused with another words: %v", err)
+	}
+	if _, err := f.repo.GetBudgetLine(f.bg, line.ID); err != nil {
+		t.Fatalf("the refused line is gone: %v", err)
+	}
+	if _, err := f.repo.DeleteBudgetLine(f.bg, line.ID, line.SetAt); err != nil {
+		t.Fatalf("the current version was refused: %v", err)
+	}
+}
+
+func TestTheDeletedBudgetLineKeepsItsMilestoneSwitchAndCostShares(t *testing.T) {
+	f := newStoreFixture(t)
+	set, err := f.repo.SetBudget(f.bg, accounting.Budget{
+		AccountID: f.rent.ID, PeriodStart: januaryStart, PeriodEnd: februaryStart,
+		Name: "Road repair", Department: "Public works", Amount: 1000,
+		FollowMilestones: true, CostShares: map[string]int64{"Northfield": 60, "Southfield": 40},
+	})
+	if err != nil {
+		t.Fatalf("SetBudget: %v", err)
+	}
+	removed, err := f.repo.DeleteBudgetLine(f.bg, set.ID, "")
+	if err != nil {
+		t.Fatalf("DeleteBudgetLine: %v", err)
+	}
+	if !removed.FollowMilestones || removed.CostShares["Northfield"] != 60 || removed.CostShares["Southfield"] != 40 {
+		t.Fatalf("removed %+v", removed)
 	}
 }

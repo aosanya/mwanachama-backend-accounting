@@ -56,8 +56,8 @@ func TestADomainThatFillsNoProcurementRolesStillDeletesAnUnspentBudget(t *testin
 	if err != nil {
 		t.Fatalf("SetBudget: %v", err)
 	}
-	if _, err := r.DeleteBudget(ctx, set.ID); err != nil {
-		t.Fatalf("DeleteBudget: %v", err)
+	if _, err := r.DeleteBudgetLine(ctx, set.ID, ""); err != nil {
+		t.Fatalf("DeleteBudgetLine: %v", err)
 	}
 }
 
@@ -71,7 +71,7 @@ func TestABudgetWithATenderDrawingOnItCannotBeDeletedUntilNoTenderDoes(t *testin
 	if _, err := r.CreateTender(ctx, accounting.Tender{BudgetID: set.ID, Title: "Resurfacing", CreatedBy: "clerk-1"}); err != nil {
 		t.Fatalf("CreateTender: %v", err)
 	}
-	if _, err := r.DeleteBudget(ctx, set.ID); !errors.Is(err, accounting.ErrBudgetLineInUse) {
-		t.Fatalf("DeleteBudget = %v, want ErrBudgetLineInUse", err)
+	if _, err := r.DeleteBudgetLine(ctx, set.ID, ""); !errors.Is(err, accounting.ErrBudgetLineInUse) {
+		t.Fatalf("DeleteBudgetLine = %v, want ErrBudgetLineInUse", err)
 	}
 }

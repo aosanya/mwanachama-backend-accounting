@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"gorm.io/gorm"
 
+	"github.com/aosanya/mwanachama-backend-accounting/internal/versioncheck"
 	"github.com/aosanya/mwanachama-backend-shared/specstore"
 )
 
@@ -50,6 +52,32 @@ func (m *ledgerStore) budgetFor(ctx context.Context, tx *gorm.DB, accountID, sta
 	return b, err
 }
 
+func staleBudget(sent, stored Budget) error {
+	if sent.Version == "" {
+		return nil
+	}
+	setAt, err := time.Parse(time.RFC3339Nano, stored.SetAt)
+	if err != nil {
+		return nil
+	}
+	return versioncheck.Stale(sent.Version, setAt, []versioncheck.Field{
+		{Name: "name", Sent: sent.Name, Stored: stored.Name},
+		{Name: "department", Sent: sent.Department, Stored: stored.Department},
+		{Name: "amount", Sent: strconv.FormatInt(sent.Amount, 10), Stored: strconv.FormatInt(stored.Amount, 10)},
+	})
+}
+
+func staleBudgetLine(version string, stored Budget) error {
+	if version == "" {
+		return nil
+	}
+	setAt, err := time.Parse(time.RFC3339Nano, stored.SetAt)
+	if err != nil {
+		return nil
+	}
+	return versioncheck.Stale(version, setAt, nil)
+}
+
 func (m *ledgerStore) SetBudget(ctx context.Context, b Budget) (Budget, error) {
 	if err := m.checks(roleBudget, b); err != nil {
 		return Budget{}, err
@@ -73,14 +101,18 @@ func (m *ledgerStore) SetBudget(ctx context.Context, b Budget) (Budget, error) {
 			if b.Create {
 				return &BudgetLineExistsError{AccountID: b.AccountID, Category: string(account.Category), PeriodStart: b.PeriodStart, PeriodEnd: b.PeriodEnd}
 			}
+			if err := staleBudget(b, existing); err != nil {
+				return err
+			}
 			b.ID = existing.ID
 		case errors.Is(err, ErrNotFound):
 			b.ID = ""
 		default:
 			return err
 		}
-		b.SetAt = m.now()
+		b.Version = ""
 		b.Create = false
+		b.SetAt = m.now()
 
 		o := m.st.Object(roleBudget)
 		if b.ID != "" {
@@ -113,17 +145,21 @@ func (m *ledgerStore) SetBudget(ctx context.Context, b Budget) (Budget, error) {
 	return out, nil
 }
 
-func (m *ledgerStore) DeleteBudget(ctx context.Context, id string) (Budget, error) {
-	var removed Budget
+func (m *ledgerStore) DeleteBudgetLine(ctx context.Context, id, version string) (BudgetLine, error) {
+	var removed BudgetLine
 	err := m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := m.take(m.on(ctx, tx, roleBudget).Where("id = ?", id), roleBudget, &removed, ErrNotFound); err != nil {
+		var b Budget
+		if err := m.take(m.on(ctx, tx, roleBudget).Where("id = ?", id), roleBudget, &b, ErrNotFound); err != nil {
 			return err
 		}
-		from, to, err := parsePeriod(removed.PeriodStart, removed.PeriodEnd)
+		if err := staleBudgetLine(version, b); err != nil {
+			return err
+		}
+		from, to, err := parsePeriod(b.PeriodStart, b.PeriodEnd)
 		if err != nil {
 			return err
 		}
-		entries, err := m.entriesTouching(ctx, tx, removed.AccountID, 0)
+		entries, err := m.entriesTouching(ctx, tx, b.AccountID, 0)
 		if err != nil {
 			return err
 		}
@@ -135,10 +171,15 @@ func (m *ledgerStore) DeleteBudget(ctx context.Context, id string) (Budget, erro
 		if err := m.refuseWhileATenderDraws(ctx, tx, id); err != nil {
 			return err
 		}
+		removed = BudgetLine{
+			ID: b.ID, Name: b.Name, Department: b.Department, AccountID: b.AccountID,
+			PeriodStart: b.PeriodStart, PeriodEnd: b.PeriodEnd, Planned: b.Amount, SetAt: b.SetAt,
+			FollowMilestones: b.FollowMilestones, CostShares: b.CostShares,
+		}
 		return m.on(ctx, tx, roleBudget).Where("id = ?", id).Delete(nil).Error
 	})
 	if err != nil {
-		return Budget{}, err
+		return BudgetLine{}, err
 	}
 	return removed, nil
 }

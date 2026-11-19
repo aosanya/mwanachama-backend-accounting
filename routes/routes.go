@@ -9,6 +9,7 @@ import (
 	"github.com/aosanya/mwanachama-backend-shared/httpwire"
 
 	accounting "github.com/aosanya/mwanachama-backend-accounting"
+	"github.com/aosanya/mwanachama-backend-accounting/internal/versioncheck"
 )
 
 type Route = httpwire.Route
@@ -34,7 +35,16 @@ var sentinels = map[string]error{
 	"ErrOwnDayEntry":       accounting.ErrOwnDayEntry,
 	"ErrDateOverfull":      accounting.ErrDateOverfull,
 	"ErrLocked":            accounting.ErrLocked,
+	"ErrStale":             dispatch.ByType(&versioncheck.StaleError{}, nil),
 	"ErrBudgetLineExists":  dispatch.ByType(&accounting.BudgetLineExistsError{}, nil),
+}
+
+func Sentinels() map[string]error {
+	out := make(map[string]error, len(sentinels))
+	for name, err := range sentinels {
+		out[name] = err
+	}
+	return out
 }
 
 type Mount struct {
@@ -54,7 +64,7 @@ func BuildFor(repo accounting.LedgerRepository, m Mount) ([]Route, error) {
 		return nil, err
 	}
 	return dispatch.Dispatch(s, dispatch.Deps{
-		Manager: repo, Errors: sentinels, Authorize: m.Authorize, Caller: m.Caller,
+		Manager: repo, Errors: Sentinels(), Authorize: m.Authorize, Caller: m.Caller,
 	})
 }
 

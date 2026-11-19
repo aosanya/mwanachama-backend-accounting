@@ -2,6 +2,7 @@ package routes_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -100,5 +101,72 @@ func TestABillIsRaisedPaidInPartsAndLockedOnceSettledOverHTTP(t *testing.T) {
 	rec = serve(handlers, http.MethodGet, "/bills?status=banana", "")
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("unknown status: got %d, want 400", rec.Code)
+	}
+}
+
+func TestAPaymentIsReversedOverHTTPOnceWithTheMountsCaller(t *testing.T) {
+	handlers := clerkRoutes(t)
+	income := openOverHTTP(t, handlers, "rates", "income")
+	receivable := openOverHTTP(t, handlers, "receivable", "asset")
+	cash := openOverHTTP(t, handlers, "cash", "asset")
+	rec := serve(handlers, http.MethodPost, "/bills",
+		`{"income_account_id":"`+income.ID+`","receivable_account_id":"`+receivable.ID+`","amount":5000,"due_at":"2030-01-01T00:00:00Z","payer":"Fo utca 3"}`)
+	var bill accounting.Bill
+	decode(t, rec, &bill)
+	rec = serve(handlers, http.MethodPost, "/bills/"+bill.ID+"/payments", `{"cash_account_id":"`+cash.ID+`","amount":2000}`)
+	var payment accounting.Payment
+	decode(t, rec, &payment)
+
+	rec = serve(handlers, http.MethodPost, "/payments/"+payment.ID+"/reversal", `{"narration":"Entered twice","reversed_by":"forged"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("reverse: got %d, body %s", rec.Code, rec.Body.String())
+	}
+	rec = serve(handlers, http.MethodGet, "/accounts/"+cash.ID+"/entries", "")
+	var entries []accounting.Entry
+	decode(t, rec, &entries)
+	if len(entries) != 2 || entries[1].ReversesEntryID != payment.ID || entries[1].ActorID != "clerk-1" || entries[1].Narration != "Entered twice" {
+		t.Fatalf("entries %+v", entries)
+	}
+	rec = serve(handlers, http.MethodGet, "/bills/"+bill.ID, "")
+	var back accounting.Bill
+	decode(t, rec, &back)
+	if back.Outstanding != 5000 || back.Settled != 0 {
+		t.Fatalf("bill %+v", back)
+	}
+
+	rec = serve(handlers, http.MethodPost, "/payments/"+payment.ID+"/reversal", `{}`)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("twice: got %d, want 409, body %s", rec.Code, rec.Body.String())
+	}
+	rec = serve(handlers, http.MethodPost, "/payments/"+bill.ID+"/reversal", `{}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("a bill: got %d, want 400, body %s", rec.Code, rec.Body.String())
+	}
+	rec = serve(handlers, http.MethodPost, "/payments/nope/reversal", `{}`)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown: got %d, want 404, body %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestThePaymentReversalToolIsNamedAfterItsActionAndTakesNoReversedBy(t *testing.T) {
+	tool, ok := budgetTools(t, ledgerOnMemory(t))["accounting_payment_reverse"]
+	if !ok {
+		t.Fatal("no tool accounting_payment_reverse")
+	}
+	if tool.Action != "accounting.payment.reverse" {
+		t.Fatalf("action %s", tool.Action)
+	}
+	var schema struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+		Required   []string                   `json:"required"`
+	}
+	if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := schema.Properties["paymentID"]; !ok {
+		t.Fatalf("properties %v", schema.Properties)
+	}
+	if _, ok := schema.Properties["reversed_by"]; ok {
+		t.Fatal("reversed_by is a caller argument, not a tool property")
 	}
 }

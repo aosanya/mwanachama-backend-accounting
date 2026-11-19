@@ -22,6 +22,12 @@ type MarkPaidInput struct {
 	PaidBy        string `json:"paid_by"`
 }
 
+type ReversePaymentInput struct {
+	PaymentID  string `json:"paymentID"`
+	Narration  string `json:"narration,omitempty"`
+	ReversedBy string `json:"reversed_by"`
+}
+
 type Payment struct {
 	ID               string      `json:"id"`
 	Kind             PaymentKind `json:"kind"`

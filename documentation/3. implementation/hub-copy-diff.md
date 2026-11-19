@@ -45,10 +45,10 @@ After the hub-only code moved here, no line of the output starts with `Only in h
 | Where | Difference | Why it stays |
 |---|---|---|
 | `accounting.blueprint.json`, `mwanachama.accounting.json` | This repository declares and fills `figure`, `day_allowance` and `day_entry`; the hub does not. | Only here. They arrive in the hub with the import. |
-| `accounting.operations.json` | The figure and day operations and `withdraw_budget` here; `delete_budget_line` and the version wording of `set_budget` in the hub. | The delete is an owner question and the version check waits for `versioncheck` in the shared module. See [hub-import-drift.md](hub-import-drift.md). |
-| `budget_store.go`, `models/ledger.go`, `ledger_repository.go`, `routes/routes.go` | `DeleteBudget` here against `DeleteBudgetLine` there; `Budget.Version`, `staleBudget` and `ErrStale` only there; the day and figure repositories only here. | Same two reasons. |
+| `accounting.operations.json` | The figure and day operations here, and the donor wording of the two upward report operations. | Only here. |
+| `budget_store.go`, `models/ledger.go`, `ledger_repository.go`, `routes/routes.go` | The day and figure repositories only here; the version check imports `internal/versioncheck` here and the shared copy there; the returned line also carries the cost shares and the milestone switch. | The check waits for `versioncheck` in the shared module. See [hub-import-drift.md](hub-import-drift.md). |
 | `ledger_store.go`, `procurement_store.go`, `update_store.go`, `upward_report_store.go` | Here the carriers for `tender`, `quote` and `upward_report` are optional and their operations check that the domain fills the role first. | The hub requires every role; this repository lets a domain leave them out. |
-| `dimension_totals_test.go`, `dimension_shares_test.go`, `budget_delete_test.go` | The hub's additions were merged in beside the existing tests; the hub's delete tests did not move. | Owner question. |
+| `dimension_totals_test.go`, `dimension_shares_test.go`, `budget_delete_test.go` | The hub's additions were merged in beside the existing tests; the hub's delete tests moved, and the budget version and delete tool tests became `routes/budget_version_test.go` and `routes/budget_delete_route_test.go`. | Same behaviour. |
 | `Only in hub`: `mcp/`, `routes/tools.go`, `routes/procurement_tools.go` and the `routes/*_tools_test.go` files | The agent tool filter, the MCP registration and their tests. | Hub-only wiring, listed in the drift page for the hub's import step. |
 | `Only in backend`: the day, figure, route, blueprint and billing, reporting and optional-role tests | Written here. | They test code both sides now hold or only this side holds. |
 

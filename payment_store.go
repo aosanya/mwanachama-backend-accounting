@@ -15,6 +15,8 @@ type (
 	Payment       = models.Payment
 	PaymentKind   = models.PaymentKind
 	MarkPaidInput = models.MarkPaidInput
+
+	ReversePaymentInput = models.ReversePaymentInput
 )
 
 const DocumentPayment DocumentKind = "payment"
@@ -31,6 +33,8 @@ type PaymentFilter struct {
 
 type PaymentRepository interface {
 	MarkBillPaid(ctx context.Context, in MarkPaidInput) (Payment, error)
+
+	ReversePayment(ctx context.Context, in ReversePaymentInput) (Payment, error)
 
 	ListPayments(ctx context.Context, filter PaymentFilter) ([]Payment, error)
 }
@@ -115,6 +119,39 @@ func paymentDimensions(dimensions map[string]string, method, reference string) m
 		dimensions[dimensionReference] = reference
 	}
 	return dimensions
+}
+
+func (m *ledgerStore) ReversePayment(ctx context.Context, in ReversePaymentInput) (Payment, error) {
+	if strings.TrimSpace(in.PaymentID) == "" {
+		return Payment{}, fmt.Errorf("%w: a reversal names no paymentID", ErrInvalid)
+	}
+	if strings.TrimSpace(in.ReversedBy) == "" {
+		return Payment{}, fmt.Errorf("%w: a reversal names no reversed_by", ErrInvalid)
+	}
+	found, err := specstore.List[Entry](m.st, m.q(ctx, roleEntry).Where("id = ?", in.PaymentID), roleEntry)
+	if err != nil {
+		return Payment{}, err
+	}
+	if len(found) == 0 {
+		return Payment{}, ErrNotFound
+	}
+	original := found[0]
+	if original.SettlesEntryID == "" || original.ReversesEntryID != "" {
+		return Payment{}, fmt.Errorf("%w: entry %s is not a payment of a bill", ErrInvalid, original.ID)
+	}
+	if _, err := m.Post(ctx, Entry{
+		DebitAccountID:  original.CreditAccountID,
+		CreditAccountID: original.DebitAccountID,
+		Amount:          original.Amount,
+		DocumentKind:    DocumentPayment,
+		DocumentID:      newID(),
+		ActorID:         in.ReversedBy,
+		Narration:       in.Narration,
+		ReversesEntryID: original.ID,
+	}); err != nil {
+		return Payment{}, err
+	}
+	return billPaymentOf(original), nil
 }
 
 func billPaymentOf(e Entry) Payment {

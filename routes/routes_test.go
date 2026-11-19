@@ -94,6 +94,7 @@ func TestRoutesAnswerTheSameAddressesAsBeforeTheConversion(t *testing.T) {
 		"POST /figures",
 		"POST /milestones",
 		"POST /milestones/{milestoneID}/certificates",
+		"POST /payments/{paymentID}/reversal",
 		"POST /tenders",
 		"POST /tenders/{tenderID}/quotes",
 		"POST /upward-reports",
