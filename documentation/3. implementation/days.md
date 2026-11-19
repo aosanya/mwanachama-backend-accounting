@@ -11,7 +11,7 @@ The blueprint declares two roles. The shipped domain fills them as `day_allowanc
 | Role | Fields | Written once |
 |---|---|---|
 | `day_allowance` | `project`, `consultant`, `position`, `days_bought`, `rate`, `period_start`, `period_end`, `replaces_id`, `reason`, `set_by`, `set_at` | every field |
-| `day_entry` | `project`, `consultant`, `worked_on`, `days`, `description`, `status`, `submitted_by`, `submitted_at`, `decided_by`, `decided_at` | all but `status`, `decided_by`, `decided_at` |
+| `day_entry` | `project`, `consultant`, `worked_on`, `days`, `rate`, `description`, `status`, `submitted_by`, `submitted_at`, `decided_by`, `decided_at` | all but `status`, `rate`, `decided_by`, `decided_at` |
 
 ## The rules
 
@@ -19,11 +19,17 @@ The blueprint declares two roles. The shipped domain fills them as `day_allowanc
 - A change of days is a new row that names the current row it replaces and a reason. The old row stays. A row that is not current cannot be replaced, and a second row for a consultant who already holds one is refused.
 - An entry starts `submitted` and is decided once, to `approved` or `rejected`. Deciding again is `ErrDayEntryDecided` (409).
 - Approving an entry whose days, added to the consultant's approved days, pass the days bought is `ErrOverDaysBought` (409). So is approving days for a consultant who holds no allowance on the project. The entry stays submitted.
+- The consultant name is trimmed and written in lower case on every write, and every lookup and list filter is normalised the same way, so `Ana Lund`, `ana lund` and `Ana Lund ` are one person and a second allowance under another spelling is refused. A balance line shows the lower-case name. Rows written before this rule are not rewritten.
+- Approving an entry stamps it with the rate of the allowance in force at that moment. A replacing allowance prices only days approved after it; days already approved keep their own rate.
+- A replacing allowance whose days are fewer than the consultant's approved days is `ErrOverDaysBought` (409).
+- The person approving an entry is not the person who submitted it or the consultant it names, compared after trimming and lower-casing. Otherwise `ErrOwnDayEntry` (409). Rejecting is open to the submitter, so a person can withdraw their own entry.
+- An entry is at most one day (100 hundredths), else `ErrInvalid`. The non-rejected entries of one consultant on one project and date add up to at most one day, else `ErrDateOverfull` (409). A rejected entry frees its date. A month of work is therefore a run of daily entries, and a double submit is refused.
+- An allowance whose days times rate would not fit a whole number is `ErrInvalid`.
 - `period_start` and `period_end` are kept and checked as an RFC 3339 pair. They do not limit which dates an entry may carry.
 
 ## The days balance
 
-`DaysBalance(project)` returns one line per consultant and a total. Bought is the current allowance's days. Submitted is the days of entries still waiting for a decision. Approved is spent. Left is bought minus approved. Fee is approved days at the rate, rounded half up to a whole minor unit, fee ceiling is days bought at the rate, and fee left is the difference. A consultant with entries and no allowance still has a line, with nothing bought.
+`DaysBalance(project)` returns one line per consultant and a total. Bought is the current allowance's days. Submitted is the days of entries still waiting for a decision. Approved is spent. Left is bought minus approved. Fee is the sum, over the rates days were approved at, of those days at that rate, rounded half up to a whole minor unit. Fee left is the days left at the current allowance's rate, and the fee ceiling is the fee plus the fee left, so a new rate changes the ceiling only for the days still to come. Entries approved before the rate column existed carry a rate of zero. A consultant with entries and no allowance still has a line, with nothing bought.
 
 ## Operations
 
@@ -42,7 +48,7 @@ Who set, submitted or decided comes from the mount's caller, never from the requ
 
 ## Tests
 
-`day_store_test.go` holds the worked example of section 5 of days.md (130 days bought, 101.0 spent, 29.0 left, fee 63,850, fee left 20,150), the refusal past the days bought and the approval after a replacing row, the replacement rules, the once-only decision, and a domain that fills no day role. `routes/day_routes_test.go` runs the same refusal over HTTP and checks the caller comes from the mount. The role list and the route list in `blueprint_test.go`, `routes/routes_test.go` and `routes/routes_cover_test.go` follow the two new roles and the eight new routes.
+`day_store_test.go` holds the worked example of section 5 of days.md (130 days bought, 101.0 spent, 29.0 left, fee 63,850, fee left 20,150), the refusal past the days bought and the approval after a replacing row, the replacement rules, the once-only decision, and a domain that fills no day role. The worked example is entered as daily entries. `day_findings_test.go` holds one test for each of: a new rate leaving approved days at their rate, a replacement below the approved days, approval by the submitter, the one-day-per-date bound, the name spellings, and the fee overflow. `routes/day_routes_test.go` runs the same refusal over HTTP and checks the caller comes from the mount. The role list and the route list in `blueprint_test.go`, `routes/routes_test.go` and `routes/routes_cover_test.go` follow the two new roles and the eight new routes.
 
 ## What carries to the hub
 

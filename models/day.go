@@ -29,6 +29,7 @@ type DayEntry struct {
 	Consultant  string         `json:"consultant"`
 	WorkedOn    string         `json:"worked_on"`
 	Days        int64          `json:"days"`
+	Rate        int64          `json:"rate,omitempty"`
 	Description string         `json:"description,omitempty"`
 	Status      DayEntryStatus `json:"status"`
 	SubmittedBy string         `json:"submitted_by"`

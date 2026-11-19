@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ const (
 
 	hundredthsPerDay = 100
 	dayRowCeiling    = 10000
+	dayCeiling       = hundredthsPerDay
 )
 
 type (
@@ -43,6 +45,10 @@ const (
 var ErrOverDaysBought = errors.New("accounting: the approved days would pass the days bought")
 
 var ErrDayEntryDecided = errors.New("accounting: that day entry has already been decided")
+
+var ErrOwnDayEntry = errors.New("accounting: a day entry is not approved by the person who submitted it or worked it")
+
+var ErrDateOverfull = errors.New("accounting: that date would hold more than one day for the consultant")
 
 type DayRepository interface {
 	AddDayAllowance(ctx context.Context, a DayAllowance) (DayAllowance, error)
@@ -84,6 +90,14 @@ func dayFee(hundredths, rate int64) int64 {
 	return (hundredths*rate + hundredthsPerDay/2) / hundredthsPerDay
 }
 
+func feeFits(hundredths, rate int64) bool {
+	return rate == 0 || hundredths <= (math.MaxInt64-hundredthsPerDay/2)/rate
+}
+
+func normalisedName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
+}
+
 func workedOnDay(day string) error {
 	parsed, err := time.Parse("2006-01-02", day)
 	if err != nil || parsed.Format("2006-01-02") != day {
@@ -98,6 +112,9 @@ func checkDayAllowance(a DayAllowance) error {
 	}
 	if a.Rate < 0 {
 		return fmt.Errorf("%w: rate %d is negative", ErrInvalid, a.Rate)
+	}
+	if !feeFits(a.DaysBought, a.Rate) {
+		return fmt.Errorf("%w: %d hundredths of a day at a rate of %d is a fee too large to count", ErrInvalid, a.DaysBought, a.Rate)
 	}
 	if a.PeriodStart == "" && a.PeriodEnd == "" {
 		return nil
@@ -134,6 +151,7 @@ func (m *ledgerStore) writeDayAllowance(ctx context.Context, a DayAllowance) (Da
 	if err := m.keepsDays(); err != nil {
 		return DayAllowance{}, err
 	}
+	a.Consultant = normalisedName(a.Consultant)
 	if err := m.checks(roleDayAllowance, a); err != nil {
 		return DayAllowance{}, err
 	}
@@ -157,6 +175,14 @@ func (m *ledgerStore) writeDayAllowance(ctx context.Context, a DayAllowance) (Da
 			}
 			if strings.TrimSpace(a.Reason) == "" {
 				return fmt.Errorf("%w: a replacing allowance says why the days changed", ErrInvalid)
+			}
+			approved, err := m.approvedHundredths(ctx, tx, a.Project, a.Consultant)
+			if err != nil {
+				return err
+			}
+			if a.DaysBought < approved {
+				return fmt.Errorf("%w: %s has %d hundredths approved on %s and the replacing allowance holds %d",
+					ErrOverDaysBought, a.Consultant, approved, a.Project, a.DaysBought)
 			}
 		}
 		a.ID = newID()
@@ -216,26 +242,46 @@ func (m *ledgerStore) SubmitDayEntry(ctx context.Context, e DayEntry) (DayEntry,
 		return DayEntry{}, err
 	}
 	e.Status = DayEntrySubmitted
+	e.Consultant = normalisedName(e.Consultant)
 	if err := m.checks(roleDayEntry, e); err != nil {
 		return DayEntry{}, err
 	}
-	if e.Days <= 0 {
-		return DayEntry{}, fmt.Errorf("%w: days %d is not positive", ErrInvalid, e.Days)
+	if e.Days <= 0 || e.Days > dayCeiling {
+		return DayEntry{}, fmt.Errorf("%w: days %d is not between 1 and %d hundredths", ErrInvalid, e.Days, dayCeiling)
 	}
 	if err := workedOnDay(e.WorkedOn); err != nil {
 		return DayEntry{}, err
 	}
 	e.ID = newID()
 	e.SubmittedAt = m.now()
-	e.DecidedBy, e.DecidedAt = "", ""
+	e.Rate, e.DecidedBy, e.DecidedAt = 0, "", ""
 	row, err := encode(m.st.Object(roleDayEntry), e)
 	if err != nil {
 		return DayEntry{}, err
 	}
-	if err := m.q(ctx, roleDayEntry).Create(row).Error; err != nil {
+	err = m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		onDate, err := m.heldOnDate(ctx, tx, e)
+		if err != nil {
+			return err
+		}
+		if onDate+e.Days > dayCeiling {
+			return fmt.Errorf("%w: %s holds %d of %d hundredths on %s and this entry adds %d",
+				ErrDateOverfull, e.Consultant, onDate, dayCeiling, e.WorkedOn, e.Days)
+		}
+		return m.on(ctx, tx, roleDayEntry).Create(row).Error
+	})
+	if err != nil {
 		return DayEntry{}, err
 	}
 	return e, nil
+}
+
+func (m *ledgerStore) heldOnDate(ctx context.Context, tx *gorm.DB, e DayEntry) (int64, error) {
+	var total int64
+	err := m.on(ctx, tx, roleDayEntry).
+		Where("project = ? AND consultant = ? AND worked_on = ? AND status <> ?", e.Project, e.Consultant, e.WorkedOn, string(DayEntryRejected)).
+		Select("coalesce(sum(days), 0)").Scan(&total).Error
+	return total, err
 }
 
 func (m *ledgerStore) approvedHundredths(ctx context.Context, tx *gorm.DB, project, consultant string) (int64, error) {
@@ -263,9 +309,14 @@ func (m *ledgerStore) decideDayEntry(ctx context.Context, entryID, decidedBy str
 			return ErrDayEntryDecided
 		}
 		if status == DayEntryApproved {
-			if err := m.withinDaysBought(ctx, tx, e); err != nil {
+			if madeBy(e, decidedBy) {
+				return ErrOwnDayEntry
+			}
+			allowance, err := m.withinDaysBought(ctx, tx, e)
+			if err != nil {
 				return err
 			}
+			e.Rate = allowance.Rate
 		}
 		e.Status, e.DecidedBy, e.DecidedAt = status, decidedBy, m.now()
 		row, err := encode(m.st.Object(roleDayEntry), e)
@@ -285,24 +336,29 @@ func (m *ledgerStore) decideDayEntry(ctx context.Context, entryID, decidedBy str
 	return out, nil
 }
 
-func (m *ledgerStore) withinDaysBought(ctx context.Context, tx *gorm.DB, e DayEntry) error {
+func madeBy(e DayEntry, person string) bool {
+	who := normalisedName(person)
+	return who == normalisedName(e.SubmittedBy) || who == normalisedName(e.Consultant)
+}
+
+func (m *ledgerStore) withinDaysBought(ctx context.Context, tx *gorm.DB, e DayEntry) (DayAllowance, error) {
 	rows, err := m.dayAllowancesOf(ctx, tx, e.Project, e.Consultant)
 	if err != nil {
-		return err
+		return DayAllowance{}, err
 	}
 	allowance, held := currentAllowances(rows)[e.Consultant]
 	if !held {
-		return fmt.Errorf("%w: %s holds no days on %s", ErrOverDaysBought, e.Consultant, e.Project)
+		return DayAllowance{}, fmt.Errorf("%w: %s holds no days on %s", ErrOverDaysBought, e.Consultant, e.Project)
 	}
 	approved, err := m.approvedHundredths(ctx, tx, e.Project, e.Consultant)
 	if err != nil {
-		return err
+		return DayAllowance{}, err
 	}
 	if approved+e.Days > allowance.DaysBought {
-		return fmt.Errorf("%w: %s has %d of %d hundredths approved on %s and this entry adds %d",
+		return DayAllowance{}, fmt.Errorf("%w: %s has %d of %d hundredths approved on %s and this entry adds %d",
 			ErrOverDaysBought, e.Consultant, approved, allowance.DaysBought, e.Project, e.Days)
 	}
-	return nil
+	return allowance, nil
 }
 
 func (m *ledgerStore) ApproveDayEntry(ctx context.Context, entryID, decidedBy string) (DayEntry, error) {
@@ -325,7 +381,7 @@ func (m *ledgerStore) ListDayEntries(ctx context.Context, project, consultant, s
 	}
 	q := m.q(ctx, roleDayEntry).Where("project = ?", project)
 	if consultant != "" {
-		q = q.Where("consultant = ?", consultant)
+		q = q.Where("consultant = ?", normalisedName(consultant))
 	}
 	if status != "" {
 		if !declares([]string{string(DayEntrySubmitted), string(DayEntryApproved), string(DayEntryRejected)}, status) {
@@ -339,15 +395,16 @@ func (m *ledgerStore) ListDayEntries(ctx context.Context, project, consultant, s
 type dayTotal struct {
 	Consultant string
 	Status     string
+	Rate       int64
 	Total      int64
 }
 
 func (m *ledgerStore) dayTotals(ctx context.Context, project string) ([]dayTotal, error) {
 	var totals []dayTotal
 	err := m.q(ctx, roleDayEntry).
-		Select("consultant, status, sum(days) as total").
+		Select("consultant, status, rate, sum(days) as total").
 		Where("project = ?", project).
-		Group("consultant, status").
+		Group("consultant, status, rate").
 		Scan(&totals).Error
 	return totals, err
 }
@@ -382,18 +439,19 @@ func (m *ledgerStore) DaysBalance(ctx context.Context, project string) (DaysBala
 	for _, t := range totals {
 		switch DayEntryStatus(t.Status) {
 		case DayEntrySubmitted:
-			line(t.Consultant).Submitted = t.Total
+			line(t.Consultant).Submitted += t.Total
 		case DayEntryApproved:
-			line(t.Consultant).Approved = t.Total
+			l := line(t.Consultant)
+			l.Approved += t.Total
+			l.Fee += dayFee(t.Total, t.Rate)
 		}
 	}
 
 	balance := DaysBalance{Project: project, Lines: make([]DaysLine, 0, len(byConsultant))}
 	for _, l := range byConsultant {
 		l.Left = l.Bought - l.Approved
-		l.FeeCeiling = dayFee(l.Bought, l.Rate)
-		l.Fee = dayFee(l.Approved, l.Rate)
-		l.FeeLeft = l.FeeCeiling - l.Fee
+		l.FeeLeft = dayFee(l.Left, l.Rate)
+		l.FeeCeiling = l.Fee + l.FeeLeft
 		balance.Lines = append(balance.Lines, *l)
 	}
 	sort.Slice(balance.Lines, func(i, j int) bool { return balance.Lines[i].Consultant < balance.Lines[j].Consultant })

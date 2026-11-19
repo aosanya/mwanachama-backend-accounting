@@ -584,7 +584,7 @@
         {
           "name": "consultant",
           "type": "string",
-          "description": "The consultant the days are bought for. An opaque id or name the caller supplies.",
+          "description": "The consultant the days are bought for. An opaque id or name the caller supplies; the store trims it and writes it in lower case, so two spellings of one name are one person.",
           "required": true,
           "immutable": true
         },
@@ -684,7 +684,7 @@
         {
           "name": "consultant",
           "type": "string",
-          "description": "The consultant who worked them.",
+          "description": "The consultant who worked them, trimmed and written in lower case by the store.",
           "required": true,
           "immutable": true
         },
@@ -698,9 +698,14 @@
         {
           "name": "days",
           "type": "int",
-          "description": "The days worked, in whole hundredths of a day. Positive.",
+          "description": "The days worked, in whole hundredths of a day. Positive and at most one day. One consultant's non-rejected entries on one date add up to at most one day.",
           "required": true,
           "immutable": true
+        },
+        {
+          "name": "rate",
+          "type": "int",
+          "description": "The fee for one day of the allowance in force when the entry was approved, in minor units. Written once at approval and never changed by a later allowance row. Zero while the entry is submitted or rejected."
         },
         {
           "name": "description",

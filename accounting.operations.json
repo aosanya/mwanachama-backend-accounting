@@ -448,7 +448,7 @@
       "action": "accounting.day_allowance.create",
       "status": 201,
       "title": "Add day allowance",
-      "description": "Record the days bought for one consultant on one project: the days in hundredths of a day, the fee for a day, and an optional period. A consultant has one current allowance on a project; a change goes through replace_day_allowance, never a second row. Refused when the consultant already holds one.",
+      "description": "Record the days bought for one consultant on one project: the days in hundredths of a day, the fee for a day, and an optional period. A consultant has one current allowance on a project; a change goes through replace_day_allowance, never a second row. Refused when the consultant already holds one, whatever the case or spacing of the name, and when days times rate would not fit a whole number.",
       "args": [
         {
           "from": "body",
@@ -474,7 +474,7 @@
       "action": "accounting.day_allowance.replace",
       "status": 201,
       "title": "Replace day allowance",
-      "description": "Change the days bought by writing a new row that names the current row it replaces and says why. The old row stays as history. The replaced row must be the consultant's current one on the same project, and a reason is required.",
+      "description": "Change the days bought by writing a new row that names the current row it replaces and says why. The old row stays as history. The replaced row must be the consultant's current one on the same project, and a reason is required. Refused with 409 when the new days are fewer than the consultant's approved days, and refused when days times rate would not fit a whole number. A new rate prices days approved from then on; days already approved keep the rate they were approved at.",
       "args": [
         {
           "from": "body",
@@ -531,7 +531,7 @@
       "action": "accounting.day_entry.submit",
       "status": 201,
       "title": "Submit day entry",
-      "description": "Record days worked by one consultant on one project on one date, in hundredths of a day. It starts submitted and counts toward nothing until it is approved.",
+      "description": "Record days worked by one consultant on one project on one date, in hundredths of a day. It starts submitted and counts toward nothing until it is approved. A day is at most 100 hundredths, and one consultant's submitted and approved entries on one date add up to at most that; refused with 409 when the date would hold more.",
       "args": [
         {
           "from": "body",
@@ -556,7 +556,7 @@
       "call": "ApproveDayEntry",
       "action": "accounting.day_entry.approve",
       "title": "Approve day entry",
-      "description": "Approve a submitted entry. Refused with 409 when the consultant's approved days would pass the days bought on the project, or when the consultant holds no allowance there, until a replacing allowance row raises the days. Refused when the entry was already decided.",
+      "description": "Approve a submitted entry. Refused with 409 when the consultant's approved days would pass the days bought on the project, or when the consultant holds no allowance there, until a replacing allowance row raises the days. Refused when the entry was already decided, and refused with 409 when the person approving is the one who submitted the entry or the consultant it names. The entry is stamped with the day rate of the allowance in force at approval.",
       "args": [
         {
           "from": "path",
@@ -641,7 +641,7 @@
       "call": "DaysBalance",
       "action": "accounting.days.balance",
       "title": "Read days balance",
-      "description": "For one project, per consultant and position: the days bought, the days submitted and still awaiting a decision, the days approved, the days left, the fee approved days come to at the rate, the fee ceiling the days bought come to, and the fee left. A total line sums them. Days are hundredths of a day. Only the current allowance row of each consultant counts.",
+      "description": "For one project, per consultant and position: the days bought, the days submitted and still awaiting a decision, the days approved, the days left, the fee approved days come to, each at the rate it was approved at, the fee left (the days left at the current rate), and the fee ceiling, which is the fee plus the fee left. A total line sums them. Days are hundredths of a day. Only the current allowance row of each consultant counts.",
       "args": [
         {
           "from": "path",
@@ -965,6 +965,8 @@
     "ErrBudgetLineInUse": 409,
     "ErrOverDaysBought": 409,
     "ErrDayEntryDecided": 409,
+    "ErrOwnDayEntry": 409,
+    "ErrDateOverfull": 409,
     "ErrLocked": 409,
     "ErrBudgetLineExists": 409
   }

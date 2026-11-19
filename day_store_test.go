@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	accounting "github.com/aosanya/mwanachama-backend-accounting"
@@ -22,7 +23,7 @@ var workedExampleDays = []monthlyDays{
 	{"Ilse Marrow", [3]int64{450, 1100, 800}},
 }
 
-var workedExampleMonths = [3]string{"2026-03-31", "2026-04-30", "2026-05-31"}
+var workedExampleMonths = [3]string{"2026-03", "2026-04", "2026-05"}
 
 func buyDays(t *testing.T, r accounting.LedgerRepository, consultant, position string, days, rate int64) accounting.DayAllowance {
 	t.Helper()
@@ -65,7 +66,7 @@ func workedExampleLedger(t *testing.T) accounting.LedgerRepository {
 	buyDays(t, r, "Ilse Marrow", "Analyst", 3000, 600)
 	for _, c := range workedExampleDays {
 		for i, days := range c.worked {
-			approveDays(t, r, submitDays(t, r, c.consultant, workedExampleMonths[i], days).ID)
+			approveEach(t, r, submitDailyEntries(t, r, c.consultant, workedExampleMonths[i], days))
 		}
 	}
 	return r
@@ -74,7 +75,7 @@ func workedExampleLedger(t *testing.T) accounting.LedgerRepository {
 func daysLine(t *testing.T, b accounting.DaysBalance, consultant string) accounting.DaysLine {
 	t.Helper()
 	for _, l := range b.Lines {
-		if l.Consultant == consultant {
+		if l.Consultant == strings.ToLower(consultant) {
 			return l
 		}
 	}
@@ -99,9 +100,9 @@ func TestDaysBalanceOfTheWorkedExampleReadsBoughtSpentLeftAndFee(t *testing.T) {
 	}
 
 	lines := map[string]accounting.DaysLine{
-		"Selam Brightwater": {Consultant: "Selam Brightwater", Position: "Team leader", Rate: 900, Bought: 4000, Approved: 2750, Left: 1250, FeeCeiling: 36000, Fee: 24750, FeeLeft: 11250},
-		"Tomas Quill":       {Consultant: "Tomas Quill", Position: "Trainer", Rate: 500, Bought: 6000, Approved: 5000, Left: 1000, FeeCeiling: 30000, Fee: 25000, FeeLeft: 5000},
-		"Ilse Marrow":       {Consultant: "Ilse Marrow", Position: "Analyst", Rate: 600, Bought: 3000, Approved: 2350, Left: 650, FeeCeiling: 18000, Fee: 14100, FeeLeft: 3900},
+		"Selam Brightwater": {Consultant: "selam brightwater", Position: "Team leader", Rate: 900, Bought: 4000, Approved: 2750, Left: 1250, FeeCeiling: 36000, Fee: 24750, FeeLeft: 11250},
+		"Tomas Quill":       {Consultant: "tomas quill", Position: "Trainer", Rate: 500, Bought: 6000, Approved: 5000, Left: 1000, FeeCeiling: 30000, Fee: 25000, FeeLeft: 5000},
+		"Ilse Marrow":       {Consultant: "ilse marrow", Position: "Analyst", Rate: 600, Bought: 3000, Approved: 2350, Left: 650, FeeCeiling: 18000, Fee: 14100, FeeLeft: 3900},
 	}
 	if len(b.Lines) != len(lines) {
 		t.Fatalf("got %d lines, want %d: %+v", len(b.Lines), len(lines), b.Lines)
@@ -122,23 +123,26 @@ func TestApprovalPastTheDaysBoughtIsRefusedUntilAnAllowanceRowRaisesIt(t *testin
 	r := workedExampleLedger(t)
 	ctx := context.Background()
 
-	june := submitDays(t, r, "Tomas Quill", "2026-06-30", 1200)
+	june := submitDailyEntries(t, r, "Tomas Quill", "2026-06", 1200)
 
-	if _, err := r.ApproveDayEntry(ctx, june.ID, "lead-1"); !errors.Is(err, accounting.ErrOverDaysBought) {
-		t.Fatalf("approving 12.0 days past 10.0 left: %v, want ErrOverDaysBought", err)
+	approveEach(t, r, june[:10])
+	for _, over := range june[10:] {
+		if _, err := r.ApproveDayEntry(ctx, over.ID, "lead-1"); !errors.Is(err, accounting.ErrOverDaysBought) {
+			t.Fatalf("approving a day past the 10.0 left: %v, want ErrOverDaysBought", err)
+		}
 	}
 	entries, err := r.ListDayEntries(ctx, savingsTraining, "Tomas Quill", "submitted", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 1 || entries[0].ID != june.ID || entries[0].DecidedBy != "" {
-		t.Fatalf("the refused entry stays submitted and undecided: %+v", entries)
+	if len(entries) != 2 || entries[0].DecidedBy != "" || entries[1].DecidedBy != "" {
+		t.Fatalf("the two refused entries stay submitted and undecided: %+v", entries)
 	}
 	b, err := r.DaysBalance(ctx, savingsTraining)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := daysLine(t, b, "Tomas Quill"); got.Approved != 5000 || got.Submitted != 1200 {
+	if got := daysLine(t, b, "Tomas Quill"); got.Approved != 6000 || got.Submitted != 200 {
 		t.Fatalf("a refused approval counts for nothing, a waiting entry shows as submitted: %+v", got)
 	}
 
@@ -148,7 +152,7 @@ func TestApprovalPastTheDaysBoughtIsRefusedUntilAnAllowanceRowRaisesIt(t *testin
 	}
 	var tomas accounting.DayAllowance
 	for _, a := range current {
-		if a.Consultant == "Tomas Quill" {
+		if a.Consultant == "tomas quill" {
 			tomas = a
 		}
 	}
@@ -159,11 +163,11 @@ func TestApprovalPastTheDaysBoughtIsRefusedUntilAnAllowanceRowRaisesIt(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if raised.Project != savingsTraining || raised.Consultant != "Tomas Quill" || raised.ReplacesID != tomas.ID {
+	if raised.Project != savingsTraining || raised.Consultant != "tomas quill" || raised.ReplacesID != tomas.ID {
 		t.Fatalf("the new row keeps the project and consultant of the one it replaces: %+v", raised)
 	}
 
-	approveDays(t, r, june.ID)
+	approveEach(t, r, june[10:])
 
 	b, err = r.DaysBalance(ctx, savingsTraining)
 	if err != nil {
@@ -245,9 +249,9 @@ func TestADayEntryIsDecidedOnceAndOnlyApprovedDaysCount(t *testing.T) {
 	r, ctx := newLedger(t)
 	buyDays(t, r, "Ilse Marrow", "Analyst", 1000, 600)
 
-	kept := submitDays(t, r, "Ilse Marrow", "2026-03-10", 300)
-	dropped := submitDays(t, r, "Ilse Marrow", "2026-03-11", 400)
-	waiting := submitDays(t, r, "Ilse Marrow", "2026-03-12", 200)
+	kept := submitDays(t, r, "Ilse Marrow", "2026-03-10", 100)
+	dropped := submitDays(t, r, "Ilse Marrow", "2026-03-11", 100)
+	waiting := submitDays(t, r, "Ilse Marrow", "2026-03-12", 50)
 
 	if kept.Status != accounting.DayEntrySubmitted || kept.ID == "" || kept.SubmittedAt == "" {
 		t.Fatalf("an entry starts submitted with an id and a time: %+v", kept)
@@ -281,7 +285,7 @@ func TestADayEntryIsDecidedOnceAndOnlyApprovedDaysCount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := daysLine(t, b, "Ilse Marrow"); got.Approved != 300 || got.Submitted != 200 || got.Left != 700 {
+	if got := daysLine(t, b, "Ilse Marrow"); got.Approved != 100 || got.Submitted != 50 || got.Left != 900 {
 		t.Fatalf("only the approved entry is spent, the waiting one is submitted: %+v", got)
 	}
 }
@@ -336,7 +340,7 @@ func TestADomainThatFillsNoDayRolesRefusesDaysInPlainWords(t *testing.T) {
 func TestAProjectsDaysDoNotMixWithAnotherProjects(t *testing.T) {
 	r, ctx := newLedger(t)
 	buyDays(t, r, "Ilse Marrow", "Analyst", 1000, 600)
-	approveDays(t, r, submitDays(t, r, "Ilse Marrow", "2026-03-10", 300).ID)
+	approveDays(t, r, submitDays(t, r, "Ilse Marrow", "2026-03-10", 100).ID)
 
 	other, err := r.DaysBalance(ctx, "another-project")
 	if err != nil {

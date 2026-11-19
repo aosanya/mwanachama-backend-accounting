@@ -31,6 +31,8 @@ var sentinels = map[string]error{
 	"ErrBudgetLineInUse":   accounting.ErrBudgetLineInUse,
 	"ErrOverDaysBought":    accounting.ErrOverDaysBought,
 	"ErrDayEntryDecided":   accounting.ErrDayEntryDecided,
+	"ErrOwnDayEntry":       accounting.ErrOwnDayEntry,
+	"ErrDateOverfull":      accounting.ErrDateOverfull,
 	"ErrLocked":            accounting.ErrLocked,
 	"ErrBudgetLineExists":  dispatch.ByType(&accounting.BudgetLineExistsError{}, nil),
 }
