@@ -19,6 +19,8 @@ type LedgerRepository interface {
 
 	PaymentRepository
 
+	UseOverpaymentAllowed(check OverpaymentAllowed)
+
 	OpenAccount(ctx context.Context, a Account) (Account, error)
 
 	GetAccount(ctx context.Context, id string) (Account, error)

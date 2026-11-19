@@ -31,6 +31,18 @@ type PaymentFilter struct {
 	Limit        int      `query:"limit"`
 }
 
+type OverpaymentAllowed func(ctx context.Context) (bool, error)
+
+func (m *ledgerStore) UseOverpaymentAllowed(check OverpaymentAllowed) { m.overpayment = check }
+
+func (m *ledgerStore) overpaymentAllowed(ctx context.Context) bool {
+	if m.overpayment == nil {
+		return false
+	}
+	allowed, err := m.overpayment(ctx)
+	return err == nil && allowed
+}
+
 type PaymentRepository interface {
 	MarkBillPaid(ctx context.Context, in MarkPaidInput) (Payment, error)
 
@@ -75,7 +87,7 @@ func (m *ledgerStore) MarkBillPaid(ctx context.Context, in MarkPaidInput) (Payme
 	if amount == 0 {
 		amount = bill.Outstanding
 	}
-	if amount > bill.Outstanding {
+	if amount > bill.Outstanding && !m.overpaymentAllowed(ctx) {
 		return Payment{}, fmt.Errorf("%w: amount %d is more than the %d still outstanding on bill %s", ErrInvalid, amount, bill.Outstanding, bill.ID)
 	}
 	if _, err := m.accountOfType(ctx, in.CashAccountID, "cash_account_id", AccountTypeAsset); err != nil {

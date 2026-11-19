@@ -228,3 +228,37 @@ func TestAPaymentIsReversedOnceAndOnlyAPaymentIsReversed(t *testing.T) {
 		t.Fatalf("no reversed_by: %v", err)
 	}
 }
+
+func TestAPaymentAboveWhatIsOwedIsRefusedUnlessTheOwnerAllowsIt(t *testing.T) {
+	f := newStoreFixture(t)
+	rec := f.receivable(t)
+	b := f.bill(t, rec, "stall-9", 500, billDue)
+	over := accounting.MarkPaidInput{BillID: b.ID, CashAccountID: f.cash.ID, Amount: 700, PaidBy: "clerk-2"}
+
+	if _, err := f.repo.MarkBillPaid(f.bg, over); !errors.Is(err, accounting.ErrInvalid) {
+		t.Fatalf("overpayment with no setting = %v, want ErrInvalid", err)
+	}
+	f.repo.UseOverpaymentAllowed(func(context.Context) (bool, error) { return false, nil })
+	if _, err := f.repo.MarkBillPaid(f.bg, over); !errors.Is(err, accounting.ErrInvalid) {
+		t.Fatalf("overpayment refused by the setting = %v, want ErrInvalid", err)
+	}
+	f.repo.UseOverpaymentAllowed(func(context.Context) (bool, error) { return true, nil })
+	p, err := f.repo.MarkBillPaid(f.bg, over)
+	if err != nil || p.Amount != 700 {
+		t.Fatalf("overpayment allowed = %+v %v", p, err)
+	}
+	got, err := f.repo.GetBill(f.bg, b.ID)
+	if err != nil || got.Status != "settled" || got.Outstanding != 0 || got.Settled != 700 {
+		t.Fatalf("an overpaid bill reads %+v %v, want settled with nothing outstanding", got, err)
+	}
+}
+
+func TestAnUnreadableOverpaymentSettingKeepsTheOverpaymentRefused(t *testing.T) {
+	f := newStoreFixture(t)
+	rec := f.receivable(t)
+	b := f.bill(t, rec, "stall-9", 500, billDue)
+	f.repo.UseOverpaymentAllowed(func(context.Context) (bool, error) { return false, errors.New("setting unreadable") })
+	if _, err := f.repo.MarkBillPaid(f.bg, accounting.MarkPaidInput{BillID: b.ID, CashAccountID: f.cash.ID, Amount: 700, PaidBy: "x"}); err == nil {
+		t.Fatalf("overpayment went through with an unreadable setting")
+	}
+}

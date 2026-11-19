@@ -13,9 +13,10 @@ import (
 )
 
 type ledgerStore struct {
-	db  *gorm.DB
-	st  *store
-	now func() string
+	db          *gorm.DB
+	st          *store
+	now         func() string
+	overpayment OverpaymentAllowed
 }
 
 func NewLedgerRepository(db *gorm.DB, s *spec.Spec) (LedgerRepository, error) {

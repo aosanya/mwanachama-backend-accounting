@@ -211,7 +211,7 @@ func billStatus(e Entry, reversed bool, outstanding int64, at time.Time) (BillSt
 }
 
 func billOf(e Entry, reversed bool, paid int64, at time.Time) Bill {
-	outstanding := e.Amount - paid
+	outstanding := max(e.Amount-paid, 0)
 	if reversed {
 		outstanding = 0
 	}
