@@ -13,12 +13,13 @@ import (
 )
 
 type ledgerStore struct {
-	db  *gorm.DB
-	st  *store
-	now func() string
+	db              *gorm.DB
+	st              *store
+	now             func() string
+	defaultCurrency string
 }
 
-func NewLedgerRepository(db *gorm.DB, s *spec.Spec) (LedgerRepository, error) {
+func NewLedgerRepository(db *gorm.DB, s *spec.Spec, options ...Option) (LedgerRepository, error) {
 	carriers := map[string]any{
 		roleAccount: models.Account{},
 		roleEntry:   models.Entry{},
@@ -39,11 +40,19 @@ func NewLedgerRepository(db *gorm.DB, s *spec.Spec) (LedgerRepository, error) {
 		}
 	}
 	addDayCarriers(s, carriers)
+	addRateCarriers(s, carriers)
 	st, err := newStore(db, s, carriers)
 	if err != nil {
 		return nil, fmt.Errorf("NewLedgerRepository: %w", err)
 	}
-	return &ledgerStore{db: db, st: st, now: models.NowRFC3339}, nil
+	m := &ledgerStore{db: db, st: st, now: models.NowRFC3339, defaultCurrency: models.NoCurrency}
+	for _, option := range options {
+		option(m)
+	}
+	if err := checkDefaultCurrency(m.defaultCurrency); err != nil {
+		return nil, fmt.Errorf("NewLedgerRepository: %w", err)
+	}
+	return m, nil
 }
 
 func (m *ledgerStore) q(ctx context.Context, role string) *gorm.DB {
@@ -145,12 +154,14 @@ func (m *ledgerStore) CloseAccount(ctx context.Context, id string) (Account, err
 		if a.ClosedAt != "" {
 			return ErrClosed
 		}
-		balance, err := m.balanceIn(ctx, tx, id)
+		balances, err := m.balancesIn(ctx, tx, id)
 		if err != nil {
 			return err
 		}
-		if balance != 0 {
-			return ErrNonZeroBalance
+		for _, balance := range balances {
+			if balance != 0 {
+				return ErrNonZeroBalance
+			}
 		}
 
 		a.ClosedAt = m.now()
@@ -195,6 +206,10 @@ func (m *ledgerStore) postIn(ctx context.Context, tx *gorm.DB, e Entry) (Entry, 
 	if err := checkEntryBeyondSpec(e); err != nil {
 		return Entry{}, err
 	}
+	if err := checkCurrency(e.Currency); err != nil {
+		return Entry{}, err
+	}
+	e.Currency = m.currencyOf(e.Currency)
 
 	debit, err := m.accountByID(ctx, tx, e.DebitAccountID)
 	if err != nil {
@@ -231,6 +246,9 @@ func (m *ledgerStore) postIn(ctx context.Context, tx *gorm.DB, e Entry) (Entry, 
 			return Entry{}, ErrAlreadyReversed
 		}
 		e.Dimensions = original.Dimensions
+		if m.entryCurrency(original) != e.Currency {
+			return Entry{}, fmt.Errorf("%w: a reversal is in %s, the entry it reverses is in %s", ErrMixedCurrency, e.Currency, m.entryCurrency(original))
+		}
 	}
 
 	if e.SettlesEntryID != "" {
@@ -238,6 +256,9 @@ func (m *ledgerStore) postIn(ctx context.Context, tx *gorm.DB, e Entry) (Entry, 
 		if err := m.take(m.on(ctx, tx, roleEntry).Where("id = ?", e.SettlesEntryID),
 			roleEntry, &settled, ErrNotFound); err != nil {
 			return Entry{}, err
+		}
+		if m.entryCurrency(settled) != e.Currency {
+			return Entry{}, fmt.Errorf("%w: a payment is in %s, the entry it settles is in %s", ErrMixedCurrency, e.Currency, m.entryCurrency(settled))
 		}
 	}
 
@@ -257,8 +278,8 @@ func (m *ledgerStore) postIn(ctx context.Context, tx *gorm.DB, e Entry) (Entry, 
 func (m *ledgerStore) entryOfSameDocumentLine(ctx context.Context, tx *gorm.DB, e Entry) (Entry, bool, error) {
 	var found Entry
 	err := m.take(m.on(ctx, tx, roleEntry).Where(
-		"document_kind = ? AND document_id = ? AND debit_account_id = ? AND credit_account_id = ? AND amount = ? AND reverses_entry_id = ? AND settles_entry_id = ?",
-		string(e.DocumentKind), e.DocumentID, e.DebitAccountID, e.CreditAccountID, e.Amount, e.ReversesEntryID, e.SettlesEntryID,
+		"document_kind = ? AND document_id = ? AND debit_account_id = ? AND credit_account_id = ? AND amount = ? AND coalesce(nullif(currency, ''), ?) = ? AND reverses_entry_id = ? AND settles_entry_id = ?",
+		string(e.DocumentKind), e.DocumentID, e.DebitAccountID, e.CreditAccountID, e.Amount, m.defaultCurrency, e.Currency, e.ReversesEntryID, e.SettlesEntryID,
 	).Order("posted_at"), roleEntry, &found, ErrNotFound)
 	if errors.Is(err, ErrNotFound) {
 		return Entry{}, false, nil
@@ -279,12 +300,31 @@ func (m *ledgerStore) entriesTouching(ctx context.Context, tx *gorm.DB, accountI
 	return specstore.List[Entry](m.st, q, roleEntry)
 }
 
+func (m *ledgerStore) balancesIn(ctx context.Context, tx *gorm.DB, accountID string) (map[string]int64, error) {
+	entries, err := m.entriesTouching(ctx, tx, accountID, 0)
+	if err != nil {
+		return nil, err
+	}
+	return m.balancesByCurrency(accountID, entries), nil
+}
+
 func (m *ledgerStore) balanceIn(ctx context.Context, tx *gorm.DB, accountID string) (int64, error) {
 	entries, err := m.entriesTouching(ctx, tx, accountID, 0)
 	if err != nil {
 		return 0, err
 	}
-	return balanceOf(accountID, entries), nil
+	return m.singleBalance(accountID, entries)
+}
+
+func (m *ledgerStore) BalancesByCurrency(ctx context.Context, accountID string) ([]CurrencyAmount, error) {
+	if _, err := m.accountByID(ctx, m.db, accountID); err != nil {
+		return nil, err
+	}
+	balances, err := m.balancesIn(ctx, m.db, accountID)
+	if err != nil {
+		return nil, err
+	}
+	return sortedAmounts(balances), nil
 }
 
 func (m *ledgerStore) Balance(ctx context.Context, accountID string) (int64, error) {

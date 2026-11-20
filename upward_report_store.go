@@ -50,6 +50,9 @@ func (m *ledgerStore) SendUpwardReport(ctx context.Context, in UpwardReportInput
 	if err := checkRecipientRecordRowID(in.RecipientRecordRowID); err != nil {
 		return UpwardReport{}, err
 	}
+	if err := checkConversionAsked(in.ReportingCurrency, in.Rule); err != nil {
+		return UpwardReport{}, err
+	}
 	sent := UpwardReport{
 		Kind: in.Kind, PeriodStart: in.PeriodStart, PeriodEnd: in.PeriodEnd, SentBy: in.SentBy,
 		Recipient:            strings.TrimSpace(in.Recipient),
@@ -59,7 +62,7 @@ func (m *ledgerStore) SendUpwardReport(ctx context.Context, in UpwardReportInput
 	if err := m.checks(roleUpwardReport, sent); err != nil {
 		return UpwardReport{}, err
 	}
-	report, err := m.GetReport(ctx, in.PeriodStart, in.PeriodEnd)
+	report, err := m.reportToSend(ctx, in)
 	if err != nil {
 		return UpwardReport{}, err
 	}
@@ -68,6 +71,8 @@ func (m *ledgerStore) SendUpwardReport(ctx context.Context, in UpwardReportInput
 	sent.Spent = report.Figures.Spent
 	sent.Difference = report.Figures.Difference
 	sent.Departments = report.Figures.Departments
+	sent.ReportingCurrency, sent.Rule = report.Currency, report.Rule
+	sent.Rates, sent.Original = report.Rates, report.Original
 	if in.Kind == models.UpwardBudgetAndActuals {
 		sent.Lines = report.Lines
 	}

@@ -68,6 +68,12 @@
       "name": "upward_report",
       "table": "upward_reports",
       "description": "A financial report as it stood when it was sent upward."
+    },
+    {
+      "role": "rate",
+      "name": "rate",
+      "table": "rates",
+      "description": "One exchange rate between two currencies on a date, with the source it comes from."
     }
   ]
 }

@@ -78,9 +78,11 @@ func portionsOf(e Entry, key string, total int64, shared sharedLines, selected a
 	return nil
 }
 
-func foldByValue(entries []Entry, key string, selected accountSelection, w dimensionWindow, shared sharedLines) ([]DimensionTotal, DimensionTotal) {
-	byValue := map[string]*DimensionTotal{}
-	var without DimensionTotal
+type totalKey struct{ value, currency string }
+
+func (m *ledgerStore) foldByValue(entries []Entry, key string, selected accountSelection, w dimensionWindow, shared sharedLines) ([]DimensionTotal, DimensionTotal, []DimensionTotal) {
+	byValue := map[totalKey]*DimensionTotal{}
+	withoutBy := map[string]*DimensionTotal{}
 	for _, e := range entries {
 		if !w.admits(e) {
 			continue
@@ -89,31 +91,53 @@ func foldByValue(entries []Entry, key string, selected accountSelection, w dimen
 		if !touched {
 			continue
 		}
+		currency := m.entryCurrency(e)
 		parts := portionsOf(e, key, total, shared, selected)
 		if len(parts) == 0 {
-			without.Total += total
-			without.Entries++
+			row, seen := withoutBy[currency]
+			if !seen {
+				row = &DimensionTotal{Currency: m.labelledCurrency(currency)}
+				withoutBy[currency] = row
+			}
+			row.Total += total
+			row.Entries++
 			continue
 		}
 		for _, part := range parts {
-			row, seen := byValue[part.value]
+			k := totalKey{part.value, currency}
+			row, seen := byValue[k]
 			if !seen {
-				row = &DimensionTotal{Value: part.value}
-				byValue[part.value] = row
+				row = &DimensionTotal{Value: part.value, Currency: m.labelledCurrency(currency)}
+				byValue[k] = row
 			}
 			row.Total += part.amount
 			row.Entries++
 		}
 	}
-	return sortedTotals(byValue), without
+	without := DimensionTotal{}
+	var other []DimensionTotal
+	for currency, row := range withoutBy {
+		if currency == m.defaultCurrency {
+			without = *row
+			continue
+		}
+		other = append(other, *row)
+	}
+	sort.Slice(other, func(i, j int) bool { return other[i].Currency < other[j].Currency })
+	return sortedTotals(byValue), without, other
 }
 
-func sortedTotals(byValue map[string]*DimensionTotal) []DimensionTotal {
+func sortedTotals(byValue map[totalKey]*DimensionTotal) []DimensionTotal {
 	out := make([]DimensionTotal, 0, len(byValue))
 	for _, row := range byValue {
 		out = append(out, *row)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Value != out[j].Value {
+			return out[i].Value < out[j].Value
+		}
+		return out[i].Currency < out[j].Currency
+	})
 	return out
 }
 
@@ -137,7 +161,7 @@ func (m *ledgerStore) DimensionTotals(ctx context.Context, key, accountType, per
 	if err != nil {
 		return DimensionTotals{}, err
 	}
-	totals, without := foldByValue(entries, key, selected, window, sharedLinesOf(budgets))
+	totals, without, withoutOther := m.foldByValue(entries, key, selected, window, sharedLinesOf(budgets))
 	return DimensionTotals{
 		Key:         key,
 		AccountType: accountType,
@@ -145,6 +169,8 @@ func (m *ledgerStore) DimensionTotals(ctx context.Context, key, accountType, per
 		PeriodEnd:   periodEnd,
 		Totals:      totals,
 		Without:     without,
+
+		WithoutOther: withoutOther,
 	}, nil
 }
 
@@ -201,7 +227,7 @@ func (m *ledgerStore) DimensionEntries(ctx context.Context, key, value, accountT
 			if part.value != value {
 				continue
 			}
-			row := DimensionEntry{ID: e.ID, OccurredAt: happenedAt(e), Amount: part.amount, Narration: e.Narration, Account: categoryOnSelectedSide(e, selected, categories)}
+			row := DimensionEntry{ID: e.ID, OccurredAt: happenedAt(e), Amount: part.amount, Currency: m.labelledCurrency(m.entryCurrency(e)), Narration: e.Narration, Account: categoryOnSelectedSide(e, selected, categories)}
 			if shares, isShared := shared.sharesOf(e, selected); isShared && key == NeighbourhoodKey {
 				row.Whole = total
 				row.SharePercent = shares[value]

@@ -135,6 +135,7 @@ func (m *ledgerStore) CreateBill(ctx context.Context, in BillInput) (Bill, error
 		DebitAccountID:  in.ReceivableAccountID,
 		CreditAccountID: in.IncomeAccountID,
 		Amount:          in.Amount,
+		Currency:        in.Currency,
 		DueAt:           in.DueAt,
 		DocumentKind:    DocumentBill,
 		DocumentID:      newID(),
@@ -246,7 +247,9 @@ func (m *ledgerStore) billsOf(ctx context.Context, entries []Entry, at time.Time
 	}
 	out := make([]Bill, 0, len(entries))
 	for _, e := range entries {
-		out = append(out, billOf(e, reversals[e.ID], paid[e.ID], at))
+		bill := billOf(e, reversals[e.ID], paid[e.ID], at)
+		bill.Currency = m.entryCurrency(e)
+		out = append(out, bill)
 	}
 	return out, nil
 }

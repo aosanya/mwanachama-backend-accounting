@@ -34,14 +34,18 @@ func withinPeriod(e Entry, from, to time.Time) bool {
 	return err == nil && !at.Before(from) && at.Before(to)
 }
 
-func balanceWithin(accountID string, entries []Entry, from, to time.Time) int64 {
+func inPeriod(entries []Entry, from, to time.Time) []Entry {
 	inside := make([]Entry, 0, len(entries))
 	for _, e := range entries {
 		if withinPeriod(e, from, to) {
 			inside = append(inside, e)
 		}
 	}
-	return balanceOf(accountID, inside)
+	return inside
+}
+
+func (m *ledgerStore) balanceWithinCurrency(accountID string, entries []Entry, from, to time.Time, currency string) int64 {
+	return m.balanceInCurrency(accountID, inPeriod(entries, from, to), currency)
 }
 
 func (m *ledgerStore) budgetFor(ctx context.Context, tx *gorm.DB, accountID, start, end string) (Budget, error) {
@@ -88,6 +92,10 @@ func (m *ledgerStore) SetBudget(ctx context.Context, b Budget) (Budget, error) {
 	if err := checkCostShares(b.CostShares); err != nil {
 		return Budget{}, err
 	}
+	if err := checkCurrency(b.Currency); err != nil {
+		return Budget{}, err
+	}
+	b.Currency = m.currencyOf(b.Currency)
 
 	var out Budget
 	err := m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -173,7 +181,7 @@ func (m *ledgerStore) DeleteBudgetLine(ctx context.Context, id, version string) 
 		}
 		removed = BudgetLine{
 			ID: b.ID, Name: b.Name, Department: b.Department, AccountID: b.AccountID,
-			PeriodStart: b.PeriodStart, PeriodEnd: b.PeriodEnd, Planned: b.Amount, SetAt: b.SetAt,
+			PeriodStart: b.PeriodStart, PeriodEnd: b.PeriodEnd, Planned: b.Amount, Currency: m.currencyOf(b.Currency), SetAt: b.SetAt,
 			FollowMilestones: b.FollowMilestones, CostShares: b.CostShares,
 		}
 		return m.on(ctx, tx, roleBudget).Where("id = ?", id).Delete(nil).Error
@@ -200,11 +208,13 @@ func (m *ledgerStore) Variance(ctx context.Context, accountID, periodStart, peri
 	if err != nil {
 		return Variance{}, err
 	}
-	actual := balanceWithin(accountID, entries, from, to)
+	currency := m.currencyOf(b.Currency)
+	actual := m.balanceWithinCurrency(accountID, entries, from, to, currency)
 	return Variance{
 		AccountID:   accountID,
 		PeriodStart: periodStart,
 		PeriodEnd:   periodEnd,
+		Currency:    currency,
 		Budgeted:    b.Amount,
 		Actual:      actual,
 		Difference:  actual - b.Amount,
@@ -234,7 +244,9 @@ func (m *ledgerStore) lineOf(ctx context.Context, b Budget) (BudgetLine, error) 
 	if err != nil {
 		return BudgetLine{}, err
 	}
-	return BudgetLine{ID: b.ID, Name: b.Name, Department: b.Department, AccountID: b.AccountID, PeriodStart: b.PeriodStart, PeriodEnd: b.PeriodEnd, Planned: b.Amount, Spent: balanceWithin(b.AccountID, entries, from, to), SetAt: b.SetAt, FollowMilestones: b.FollowMilestones, CostShares: b.CostShares}, nil
+	currency := m.currencyOf(b.Currency)
+	spent := m.balancesByCurrency(b.AccountID, inPeriod(entries, from, to))
+	return BudgetLine{ID: b.ID, Name: b.Name, Department: b.Department, AccountID: b.AccountID, PeriodStart: b.PeriodStart, PeriodEnd: b.PeriodEnd, Planned: b.Amount, Spent: spent[currency], Currency: currency, OtherSpent: otherAmounts(spent, currency), SetAt: b.SetAt, FollowMilestones: b.FollowMilestones, CostShares: b.CostShares}, nil
 }
 
 func (m *ledgerStore) GetBudgetLine(ctx context.Context, id string) (BudgetLine, error) {

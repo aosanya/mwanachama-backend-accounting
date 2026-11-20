@@ -150,6 +150,10 @@ func (m *ledgerStore) CreateQuote(ctx context.Context, q Quote) (Quote, error) {
 	if q.Amount <= 0 {
 		return Quote{}, fmt.Errorf("%w: quote amount %d is not positive", ErrInvalid, q.Amount)
 	}
+	if err := checkCurrency(q.Currency); err != nil {
+		return Quote{}, err
+	}
+	q.Currency = m.currencyOf(q.Currency)
 	if q.ValidUntil != "" {
 		if err := checkInstant("valid_until", q.ValidUntil); err != nil {
 			return Quote{}, err

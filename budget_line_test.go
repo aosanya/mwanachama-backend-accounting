@@ -32,7 +32,7 @@ func TestABudgetLineReadsBackWithItsNameDepartmentPlannedAndSpent(t *testing.T) 
 	}
 	want := accounting.BudgetLine{
 		ID: set.ID, Name: "Road repair", Department: "Public works", AccountID: f.rent.ID,
-		PeriodStart: januaryStart, PeriodEnd: februaryStart, Planned: 1000, Spent: 300, SetAt: set.SetAt,
+		PeriodStart: januaryStart, PeriodEnd: februaryStart, Planned: 1000, Spent: 300, Currency: "XXX", SetAt: set.SetAt,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("line %+v, want %+v", got, want)

@@ -24,6 +24,7 @@ type BillInput struct {
 	PayerActorID        string `json:"payer_actor_id,omitempty"`
 	PayerRecordRowID    string `json:"payer_record_row_id,omitempty"`
 	Amount              int64  `json:"amount"`
+	Currency            string `json:"currency,omitempty"`
 	DueAt               string `json:"due_at"`
 	Narration           string `json:"narration,omitempty"`
 	BilledBy            string `json:"billed_by"`
@@ -37,6 +38,7 @@ type Bill struct {
 	PayerActorID        string     `json:"payer_actor_id,omitempty"`
 	PayerRecordRowID    string     `json:"payer_record_row_id,omitempty"`
 	Amount              int64      `json:"amount"`
+	Currency            string     `json:"currency"`
 	Settled             int64      `json:"settled"`
 	Outstanding         int64      `json:"outstanding"`
 	RaisedAt            string     `json:"raised_at"`

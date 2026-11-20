@@ -68,6 +68,10 @@ func (m *ledgerStore) AddMilestone(ctx context.Context, ms Milestone) (Milestone
 			return Milestone{}, err
 		}
 	}
+	if err := checkCurrency(ms.Currency); err != nil {
+		return Milestone{}, err
+	}
+	ms.Currency = m.currencyOf(ms.Currency)
 	if _, err := m.accountByID(ctx, m.db, ms.AccountID); err != nil {
 		return Milestone{}, err
 	}
@@ -149,12 +153,14 @@ func (m *ledgerStore) CertifyPayment(ctx context.Context, c Certificate) (Certif
 			return ErrOverCertified
 		}
 		c.ID = newID()
+		c.Currency = m.currencyOf(ms.Currency)
 		c.RetentionAmount = c.Amount * c.RetentionBps / basisPoints
 		dimensions := map[string]string{dimensionContract: ms.ContractID, dimensionMilestone: ms.ID}
 		payment, err := m.postIn(ctx, tx, Entry{
 			DebitAccountID:  ms.AccountID,
 			CreditAccountID: c.PayeeAccountID,
 			Amount:          c.Amount - c.RetentionAmount,
+			Currency:        c.Currency,
 			DocumentKind:    DocumentPaymentCertificate,
 			DocumentID:      c.ID,
 			ActorID:         c.CertifiedBy,
@@ -170,6 +176,7 @@ func (m *ledgerStore) CertifyPayment(ctx context.Context, c Certificate) (Certif
 				DebitAccountID:  ms.AccountID,
 				CreditAccountID: c.RetentionAccountID,
 				Amount:          c.RetentionAmount,
+				Currency:        c.Currency,
 				DocumentKind:    DocumentPaymentCertificate,
 				DocumentID:      c.ID,
 				ActorID:         c.CertifiedBy,
@@ -246,6 +253,7 @@ func (m *ledgerStore) ReleaseRetention(ctx context.Context, certificateID, relea
 			DebitAccountID:  c.RetentionAccountID,
 			CreditAccountID: c.PayeeAccountID,
 			Amount:          c.RetentionAmount,
+			Currency:        m.currencyOf(c.Currency),
 			DocumentKind:    DocumentRetentionRelease,
 			DocumentID:      c.ID,
 			ActorID:         releasedBy,

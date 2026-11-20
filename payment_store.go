@@ -85,6 +85,7 @@ func (m *ledgerStore) MarkBillPaid(ctx context.Context, in MarkPaidInput) (Payme
 		DebitAccountID:  in.CashAccountID,
 		CreditAccountID: bill.ReceivableAccountID,
 		Amount:          amount,
+		Currency:        bill.Currency,
 		OccurredAt:      in.PaidOn,
 		DocumentKind:    DocumentPayment,
 		DocumentID:      newID(),
@@ -143,6 +144,7 @@ func (m *ledgerStore) ReversePayment(ctx context.Context, in ReversePaymentInput
 		DebitAccountID:  original.CreditAccountID,
 		CreditAccountID: original.DebitAccountID,
 		Amount:          original.Amount,
+		Currency:        original.Currency,
 		DocumentKind:    DocumentPayment,
 		DocumentID:      newID(),
 		ActorID:         in.ReversedBy,
@@ -151,6 +153,7 @@ func (m *ledgerStore) ReversePayment(ctx context.Context, in ReversePaymentInput
 	}); err != nil {
 		return Payment{}, err
 	}
+	original.Currency = m.entryCurrency(original)
 	return billPaymentOf(original), nil
 }
 
@@ -161,6 +164,7 @@ func billPaymentOf(e Entry) Payment {
 		DebitAccountID:   e.DebitAccountID,
 		CreditAccountID:  e.CreditAccountID,
 		Amount:           e.Amount,
+		Currency:         e.Currency,
 		PaidAt:           e.PostedAt,
 		PaidBy:           e.ActorID,
 		Narration:        e.Narration,
@@ -195,6 +199,7 @@ func (m *ledgerStore) billPayments(ctx context.Context, filter PaymentFilter) ([
 		if reversed[e.ID] || !billIDs[e.SettlesEntryID] {
 			continue
 		}
+		e.Currency = m.entryCurrency(e)
 		p := billPaymentOf(e)
 		if filter.Payer != "" && p.Payer != filter.Payer {
 			continue

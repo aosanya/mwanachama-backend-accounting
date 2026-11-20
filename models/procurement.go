@@ -21,6 +21,7 @@ type Quote struct {
 	TenderID   string `json:"tender_id"`
 	Supplier   string `json:"supplier"`
 	Amount     int64  `json:"amount"`
+	Currency   string `json:"currency,omitempty"`
 	Note       string `json:"note,omitempty"`
 	ValidUntil string `json:"valid_until,omitempty"`
 	QuotedBy   string `json:"quoted_by"`
