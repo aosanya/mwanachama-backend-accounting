@@ -16,6 +16,7 @@ type UpwardReportInput struct {
 	Recipient            string `json:"recipient,omitempty"`
 	RecipientRecordRowID string `json:"recipient_record_row_id,omitempty"`
 	Reference            string `json:"reference,omitempty"`
+	Project              string `json:"project,omitempty"`
 }
 
 type UpwardReport struct {
@@ -34,4 +35,5 @@ type UpwardReport struct {
 	Recipient            string `json:"recipient,omitempty"`
 	RecipientRecordRowID string `json:"recipient_record_row_id,omitempty"`
 	Reference            string `json:"reference,omitempty"`
+	Project              string `json:"project,omitempty"`
 }

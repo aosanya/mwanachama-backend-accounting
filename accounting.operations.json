@@ -750,7 +750,7 @@
       "action": "accounting.upward_report.send",
       "status": 201,
       "title": "Send upward report",
-      "description": "Record that the report of one period was sent upward. The report is folded at that moment, the same one accounting_report_read gives, and one record is kept: its kind, the period, the planned, spent and difference totals as sent (the difference is planned minus spent), the department figures, when it was sent and who sent it. Kind is budget_and_actuals, which also keeps every budget line, or spending_by_department, which keeps the department figures only. Name who it went to if known: recipient (the name as written), recipient_record_row_id (the recipient's row in a record, a uuid; reports can then be listed by recipient_record_row_id) and reference (the recipient's own contract or grant number); all three are optional and kept as sent, never edited. Refused for any other kind, for a recipient_record_row_id that is not a uuid, and for a period with no budget lines. A second send of the same period and kind is another record, never an edit. Nothing is transmitted over a network.",
+      "description": "Record that the report of one period was sent upward. The report is folded at that moment, the same one accounting_report_read gives, and one record is kept: its kind, the period, the planned, spent and difference totals as sent (the difference is planned minus spent), the department figures, when it was sent and who sent it. Kind is budget_and_actuals, which also keeps every budget line, or spending_by_department, which keeps the department figures only. Name who it went to if known: recipient (the name as written), recipient_record_row_id (the recipient's row in a record, a uuid; reports can then be listed by recipient_record_row_id) and reference (the recipient's own contract or grant number); all three are optional and kept as sent, never edited. Name project to cut the report for one project: only the budget lines whose department is that project are folded, and each line's spent counts only entries carrying the dimension project with that value; the project is kept as sent. Without project the whole period is folded as before. Refused for any other kind, for a recipient_record_row_id that is not a uuid, for a project that is not a valid dimension value, and for a period with no budget lines (for a project: with no budget line of that project). A second send of the same period and kind is another record, never an edit. Nothing is transmitted over a network.",
       "args": [
         { "from": "body", "whole": true },
         { "from": "caller", "as": "sent_by", "into": "SentBy", "description": "Who sent the report, supplied by the mount. Never read from the request." }
@@ -763,7 +763,7 @@
       "call": "ListUpwardReports",
       "action": "accounting.upward_report.list",
       "title": "List upward reports",
-      "description": "List the reports sent upward, newest first, each with its kind, period, the planned, spent and difference totals as sent (the difference is planned minus spent), the department figures, the budget lines when the kind keeps them, when it was sent, who sent it and, when it named them, its recipient, recipient_record_row_id and reference. Narrow by recipient_record_row_id to list the reports sent to one recipient; limit caps the page.",
+      "description": "List the reports sent upward, newest first, each with its kind, period, the planned, spent and difference totals as sent (the difference is planned minus spent), the department figures, the budget lines when the kind keeps them, when it was sent, who sent it and, when it named them, its recipient, recipient_record_row_id and reference. Narrow by recipient_record_row_id to list the reports sent to one recipient, by project to list the reports cut for one project, or by both; limit caps the page.",
       "args": [
         { "from": "query", "whole": true }
       ],
@@ -828,7 +828,7 @@
       "call": "UpdateBill",
       "action": "accounting.bill.update",
       "title": "Correct bill",
-      "description": "Correct a bill that is not yet settled: send its payer, payer_actor_id (the payer's person id), payer_record_row_id (the payer's business or trader record row id), amount, due_at and narration as they should now read; a correction that leaves payer_actor_id or payer_record_row_id out clears that link. A bill that already has a payment keeps its amount, and a settled or reversed bill is refused.",
+      "description": "Correct a bill that is not yet settled: send its payer, payer_actor_id (the payer's person id), payer_record_row_id (the payer's business or trader record row id), amount, due_at and narration as they should now read; project (the project key the bill is raised for) as it should now read; a correction that leaves payer_actor_id, payer_record_row_id or project out clears that link. A bill that already has a payment keeps its amount, and a settled or reversed bill is refused.",
       "args": [
         {"from": "body", "whole": true},
         {"from": "path", "as": "billID", "into": "ID", "description": "The bill to correct."}
@@ -881,7 +881,7 @@
       "action": "accounting.bill.create",
       "status": 201,
       "title": "Create bill",
-      "description": "Raise a bill: an amount owed to an income account, due on a date. It is posted as a debit to the receivable account and a credit to the income account, with due_at set, so the overdue read ages it. Name the income account, the receivable account (an asset account), the amount, due_at and, if known, the payer (display text) payer_actor_id (the payer's person id, a uuid; bills can then be listed by actor_id) and payer_record_row_id (the payer's business or informal trader record row id, a uuid; bills can then be listed by record_row_id). A payment settles a bill by naming it in settles_entry_id.",
+      "description": "Raise a bill: an amount owed to an income account, due on a date. It is posted as a debit to the receivable account and a credit to the income account, with due_at set, so the overdue read ages it. Name the income account, the receivable account (an asset account), the amount, due_at and, if known, the payer (display text) payer_actor_id (the payer's person id, a uuid; bills can then be listed by actor_id) and payer_record_row_id (the payer's business or informal trader record row id, a uuid; bills can then be listed by record_row_id). Name the project it is raised for in project (a short text, the same project key the fee entries carry, at most 200 characters; bills can then be listed by project and totalled with dimension totals of key project and account_type asset). A payment settles a bill by naming it in settles_entry_id.",
       "args": [
         { "from": "body", "whole": true },
         { "from": "caller", "as": "billed_by", "into": "BilledBy", "description": "Who raised the bill, supplied by the mount. Never read from the request." }
@@ -894,7 +894,7 @@
       "call": "ListBills",
       "action": "accounting.bill.list",
       "title": "List bills",
-      "description": "List bills by due date, each with its amount, what was settled, what is outstanding and its status: open, overdue (past due_at as of as_of, default now, and not fully settled), settled or reversed. Narrow by income_account_id, status, payer (the name as written) actor_id (the payer's person id, set as payer_actor_id when the bill was raised) or record_row_id (a business or trader record row id, set as payer_record_row_id when the bill was raised; bills raised against an older row it replaced are listed too); limit caps the page.",
+      "description": "List bills by due date, each with its amount, what was settled, what is outstanding and its status: open, overdue (past due_at as of as_of, default now, and not fully settled), settled or reversed. Narrow by income_account_id, status, payer (the name as written) actor_id (the payer's person id, set as payer_actor_id when the bill was raised) or record_row_id (a business or trader record row id, set as payer_record_row_id when the bill was raised; bills raised against an older row it replaced are listed too) or project (set as project when the bill was raised); limit caps the page.",
       "args": [
         { "from": "query", "whole": true }
       ],

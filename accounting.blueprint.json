@@ -981,6 +981,12 @@
           "type": "string",
           "description": "The recipient's own number for what the report concerns, such as a contract or grant number, as the sender wrote it, trimmed. Absent when the report names none.",
           "immutable": true
+        },
+        {
+          "name": "project",
+          "type": "string",
+          "description": "The project the report was cut for, trimmed. When present the figures cover only the budget lines whose department is this project, spent counted from entries carrying the dimension project with this value. Narrows the list of sent reports. Absent when the report covers the whole period.",
+          "immutable": true
         }
       ],
       "indexes": [
@@ -996,6 +1002,13 @@
           "description": "Lists the reports sent to one recipient row.",
           "fields": [
             "recipient_record_row_id"
+          ]
+        },
+        {
+          "name": "project",
+          "description": "Lists the reports cut for one project.",
+          "fields": [
+            "project"
           ]
         }
       ]

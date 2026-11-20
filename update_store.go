@@ -25,6 +25,9 @@ func (m *ledgerStore) UpdateBill(ctx context.Context, in BillUpdate) (Bill, erro
 	if err := checkPayerRecordRowID(in.PayerRecordRowID); err != nil {
 		return Bill{}, err
 	}
+	if err := checkBillProject(in.Project); err != nil {
+		return Bill{}, err
+	}
 	if strings.TrimSpace(in.DueAt) == "" {
 		return Bill{}, fmt.Errorf("%w: a bill names no due_at", ErrInvalid)
 	}
@@ -51,7 +54,7 @@ func (m *ledgerStore) UpdateBill(ctx context.Context, in BillUpdate) (Bill, erro
 	entry.Amount = in.Amount
 	entry.DueAt = in.DueAt
 	entry.Narration = in.Narration
-	entry.Dimensions = payerDimensions(in.Payer, in.PayerActorID, in.PayerRecordRowID)
+	entry.Dimensions = billDimensions(in.Payer, in.PayerActorID, in.PayerRecordRowID, in.Project)
 	if err := m.rewrite(ctx, roleEntry, bill.ID, entry, "amount", "due_at", "narration", "dimensions"); err != nil {
 		return Bill{}, err
 	}
