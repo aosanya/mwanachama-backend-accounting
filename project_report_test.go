@@ -125,3 +125,19 @@ func TestReportsAreListedByProjectAndByDonorTogether(t *testing.T) {
 		t.Fatalf("every report: %d %v", len(everyReport), err)
 	}
 }
+
+func TestAReportCutToAProjectIsRefusedWhenAskedToConvert(t *testing.T) {
+	f := newStoreFixture(t)
+	f.twoProjectsInJanuary(t)
+
+	_, err := f.repo.SendUpwardReport(f.bg, accounting.UpwardReportInput{
+		PeriodStart: januaryStart, PeriodEnd: februaryStart, Kind: "budget_and_actuals", SentBy: "officer-zoldhalom",
+		Project: "reef_survey", ReportingCurrency: "EUR", Rule: accounting.RuleRateAtPostingDate,
+	})
+	if !errors.Is(err, accounting.ErrInvalid) {
+		t.Fatalf("want ErrInvalid, got %v", err)
+	}
+	if got, _ := f.repo.ListUpwardReports(f.bg, accounting.UpwardReportFilter{}); len(got) != 0 {
+		t.Fatalf("a refused send stored %d reports", len(got))
+	}
+}

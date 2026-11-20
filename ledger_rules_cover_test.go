@@ -145,10 +145,10 @@ func TestBalanceWithinCountsTheStartAndStopsBeforeTheEnd(t *testing.T) {
 		{DebitAccountID: "x", CreditAccountID: "y", Amount: 1000, PostedAt: "2026-02-01T00:00:00Z"},
 		{DebitAccountID: "x", CreditAccountID: "y", Amount: 10000, PostedAt: "not a time"},
 	}
-	if got := balanceWithin("x", entries, from, to); got != 110 {
+	if got := balanceOf("x", inPeriod(entries, from, to)); got != 110 {
 		t.Fatalf("got %d", got)
 	}
-	if got := balanceWithin("y", entries, from, to); got != -110 {
+	if got := balanceOf("y", inPeriod(entries, from, to)); got != -110 {
 		t.Fatalf("credit side %d", got)
 	}
 }

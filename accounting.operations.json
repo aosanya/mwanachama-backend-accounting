@@ -969,6 +969,50 @@
         { "from": "query", "as": "period_end", "description": "The period's end, exclusive. Required with period_start." }
       ],
       "returns": [{ "body": true }]
+    },
+    "create_rate": {
+      "method": "POST",
+      "path": "/rates",
+      "call": "CreateRate",
+      "action": "accounting.rate.create",
+      "status": 201,
+      "title": "Enter exchange rate",
+      "description": "Enter one exchange rate: how many units of the counter currency one unit of the base currency buys on a date, as a whole number scaled by 100000000 (140.00 KES per EUR is base EUR, counter KES, rate 14000000000). Kind is daily, monthly (applies to the whole month of applies_on) or agreed. Name the source the rate comes from. A rate is never edited: a correction is a new row with replaces_id naming the one it corrects, same pair, kind and date. A pair is held in one direction only; a rate in the other direction is refused. Refused for an unknown currency code, equal currencies, a rate that is not positive and a date that is not 2006-01-02.",
+      "args": [
+        { "from": "body", "whole": true },
+        { "from": "caller", "as": "recorded_by", "into": "RecordedBy", "description": "Who entered the rate, supplied by the mount. Never read from the request." }
+      ],
+      "returns": [{ "body": true }]
+    },
+    "list_rates": {
+      "method": "GET",
+      "path": "/rates",
+      "call": "ListRates",
+      "action": "accounting.rate.list",
+      "title": "List exchange rates",
+      "description": "List the exchange rates in force, oldest entered first. A rate that a later row corrected is left out. Narrow by base, counter or kind; limit caps the page.",
+      "args": [{ "from": "query", "whole": true }],
+      "returns": [{ "body": true }]
+    },
+    "get_converted_report": {
+      "method": "GET",
+      "path": "/reports/converted",
+      "call": "GetConvertedReport",
+      "action": "accounting.report.converted",
+      "title": "Read financial report in one currency",
+      "description": "Read the financial report of one period with every amount converted into reporting_currency by one rule: posting_date (the daily rate on the day each entry happened), posting_month (the monthly rate of the month each entry happened in), period_average (the mean of the daily rates inside the period, applied to the period's total in each currency) or report_date (the rate on the last day of the period, applied to each currency's total). Each line shows its budget and spending converted, and beside them the amounts as entered, one for each currency. The report names the rule and prints every rate it used with its source. A rate that does not exist is never guessed: the figure is left out, the report says complete false and lists the missing pair and date. A bill paid in a currency whose rate moved between billing and payment shows an exchange difference as its own line, in the reporting currency, and not inside the spending. Rounding is once, to the smallest unit of the reporting currency: per entry for the two posting rules, per currency total for the other two.",
+      "args": [{ "from": "query", "whole": true }],
+      "returns": [{ "body": true }]
+    },
+    "account_balances_by_currency": {
+      "method": "GET",
+      "path": "/accounts/{accountID}/balance/by-currency",
+      "call": "BalancesByCurrency",
+      "action": "accounting.account.balance_by_currency",
+      "title": "Read balance in each currency",
+      "description": "Fold one account's balance once for each currency it holds entries in, debits minus credits, never adding two currencies together. A plain balance read is refused when the account holds more than one currency.",
+      "args": [{ "from": "path", "as": "accountID", "description": "The account to fold." }],
+      "returns": [{ "body": true }]
     }
   },
   "errors": {
@@ -989,6 +1033,8 @@
     "ErrDateOverfull": 409,
     "ErrLocked": 409,
     "ErrStale": 409,
-    "ErrBudgetLineExists": 409
+    "ErrBudgetLineExists": 409,
+    "ErrMixedCurrency": 409,
+    "ErrMissingRate": 409
   }
 }

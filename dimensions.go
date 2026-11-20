@@ -101,5 +101,5 @@ func (m *ledgerStore) DimensionBalance(ctx context.Context, accountID, key, valu
 	if err != nil {
 		return 0, err
 	}
-	return balanceOf(accountID, entries), nil
+	return m.singleBalance(accountID, entries)
 }

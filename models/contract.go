@@ -14,6 +14,7 @@ type Milestone struct {
 	ContractID      string          `json:"contract_id"`
 	Name            string          `json:"name"`
 	Amount          int64           `json:"amount"`
+	Currency        string          `json:"currency,omitempty"`
 	DueAt           string          `json:"due_at,omitempty"`
 	Status          MilestoneStatus `json:"status"`
 	CertifiedAmount int64           `json:"certified_amount"`
@@ -26,6 +27,7 @@ type Certificate struct {
 	PayeeAccountID     string `json:"payee_account_id"`
 	RetentionAccountID string `json:"retention_account_id"`
 	Amount             int64  `json:"amount"`
+	Currency           string `json:"currency,omitempty"`
 	RetentionBps       int64  `json:"retention_bps"`
 	RetentionAmount    int64  `json:"retention_amount"`
 	PaymentEntryID     string `json:"payment_entry_id"`

@@ -37,6 +37,8 @@ var sentinels = map[string]error{
 	"ErrLocked":            accounting.ErrLocked,
 	"ErrStale":             dispatch.ByType(&versioncheck.StaleError{}, nil),
 	"ErrBudgetLineExists":  dispatch.ByType(&accounting.BudgetLineExistsError{}, nil),
+	"ErrMixedCurrency":     accounting.ErrMixedCurrency,
+	"ErrMissingRate":       accounting.ErrMissingRate,
 }
 
 func Sentinels() map[string]error {

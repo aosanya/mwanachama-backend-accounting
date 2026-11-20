@@ -8,8 +8,9 @@ type DepartmentFigures struct {
 }
 
 type TypeBalance struct {
-	Type    AccountType `json:"type"`
-	Balance int64       `json:"balance"`
+	Type     AccountType `json:"type"`
+	Currency string      `json:"currency"`
+	Balance  int64       `json:"balance"`
 }
 
 type ReportFigures struct {

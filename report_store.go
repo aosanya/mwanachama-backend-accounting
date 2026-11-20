@@ -2,6 +2,7 @@ package accounting
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
@@ -54,13 +55,24 @@ func (m *ledgerStore) closingBalances(ctx context.Context, to time.Time) ([]Type
 			before = append(before, e)
 		}
 	}
-	totals := map[AccountType]int64{}
+	totals := map[AccountType]map[string]int64{}
 	for _, a := range accounts {
-		totals[a.Type] += balanceOf(a.ID, before)
+		for currency, balance := range m.balancesByCurrency(a.ID, before) {
+			if totals[a.Type] == nil {
+				totals[a.Type] = map[string]int64{}
+			}
+			totals[a.Type][currency] += balance
+		}
 	}
 	out := make([]TypeBalance, 0, len(reportedTypes))
 	for _, t := range reportedTypes {
-		out = append(out, TypeBalance{Type: t, Balance: totals[t]})
+		if len(totals[t]) == 0 {
+			out = append(out, TypeBalance{Type: t, Currency: m.defaultCurrency})
+			continue
+		}
+		for _, held := range sortedAmounts(totals[t]) {
+			out = append(out, TypeBalance{Type: t, Currency: held.Currency, Balance: held.Amount})
+		}
 	}
 	return out, nil
 }
@@ -100,6 +112,9 @@ func (m *ledgerStore) reportOf(ctx context.Context, p reportPeriod, budgets []Bu
 		line, err := m.lineOf(ctx, b)
 		if err != nil {
 			return FinancialReport{}, err
+		}
+		if len(lines) > 0 && line.Currency != lines[0].Currency {
+			return FinancialReport{}, fmt.Errorf("%w: the budget lines are in %s and %s; ask for the report in one reporting currency", ErrMixedCurrency, lines[0].Currency, line.Currency)
 		}
 		lines = append(lines, line)
 		figures.Planned += line.Planned

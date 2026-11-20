@@ -138,6 +138,12 @@
           "immutable": true
         },
         {
+          "name": "currency",
+          "type": "string",
+          "description": "The ISO 4217 code the amount is in. Debit and credit are always in this one currency, so the ledger balances once per currency. Absent on a row posted before currencies existed, and read as the deployment's default currency.",
+          "immutable": true
+        },
+        {
           "name": "document_kind",
           "type": "string",
           "description": "What sort of source document caused the posting — an invoice, a receipt, a statement import — in the calling domain's own words. Open for the same reason category is: this module enforces that every entry names one, never which ones exist.",
@@ -261,6 +267,11 @@
           "description": "The budgeted balance for the period, in the same smallest unit and the same debit-minus-credit sense as the account's balance."
         },
         {
+          "name": "currency",
+          "type": "string",
+          "description": "The ISO 4217 code the budgeted amount is in, which for a donor-funded line is the donor's currency. Absent reads as the deployment's default currency."
+        },
+        {
           "name": "follow_milestones",
           "type": "bool",
           "description": "Whether the line is followed milestone by milestone. Off by default; a reader shows the line's milestones and payment certificates only when it is on."
@@ -324,6 +335,12 @@
           "name": "amount",
           "type": "int",
           "description": "What the milestone is worth in total, in the smallest unit, always positive.",
+          "immutable": true
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "description": "The ISO 4217 code the milestone amount is in. Its certificates and their entries are in the same currency. Absent reads as the deployment's default currency.",
           "immutable": true
         },
         {
@@ -406,6 +423,12 @@
           "name": "amount",
           "type": "int",
           "description": "The gross amount certified, before retention, always positive.",
+          "immutable": true
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "description": "The ISO 4217 code of the certified amount, copied from its milestone. Absent reads as the deployment's default currency.",
           "immutable": true
         },
         {
@@ -851,6 +874,12 @@
           "immutable": true
         },
         {
+          "name": "currency",
+          "type": "string",
+          "description": "The ISO 4217 code the price is in. Absent reads as the deployment's default currency.",
+          "immutable": true
+        },
+        {
           "name": "note",
           "type": "string",
           "description": "What the offer includes or assumes.",
@@ -940,6 +969,30 @@
           "immutable": true
         },
         {
+          "name": "reporting_currency",
+          "type": "string",
+          "description": "The ISO 4217 code the planned, spent and difference figures are in, when the report was converted. Absent on a report sent as the ledger holds it.",
+          "immutable": true
+        },
+        {
+          "name": "rule",
+          "type": "string",
+          "description": "The conversion rule the report was made with: posting_date, posting_month, period_average or report_date. Absent when the report was not converted.",
+          "immutable": true
+        },
+        {
+          "name": "rates",
+          "type": "json",
+          "description": "The exchange rates the conversion used, each with its pair, date, rate, kind and source, kept with the report as sent so a later correction of a rate never changes it. Absent when the report was not converted.",
+          "immutable": true
+        },
+        {
+          "name": "original",
+          "type": "json",
+          "description": "The spending as it was entered, one amount for each currency, beside the converted figures. Absent when the report was not converted.",
+          "immutable": true
+        },
+        {
           "name": "departments",
           "type": "json",
           "description": "The planned, spent and difference figures of each department as sent, the difference being planned minus spent.",
@@ -1009,6 +1062,102 @@
           "description": "Lists the reports cut for one project.",
           "fields": [
             "project"
+          ]
+        }
+      ]
+    },
+    {
+      "role": "rate",
+      "description": "One exchange rate: how many units of the counter currency one unit of the base currency buys on a date, as a whole number scaled by 100000000 so no floating point is used. Append-only: a correction is a new row that names the one it replaces.",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Storage key, opaque to callers.",
+          "primary": true
+        },
+        {
+          "name": "base",
+          "type": "string",
+          "description": "The ISO 4217 code of the currency counted in units of one, such as EUR in 140.00 KES per EUR.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "counter",
+          "type": "string",
+          "description": "The ISO 4217 code of the currency the rate is stated in, such as KES in 140.00 KES per EUR.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "rate",
+          "type": "int",
+          "description": "Units of the counter currency for one unit of the base, multiplied by 100000000. Positive.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "applies_on",
+          "type": "string",
+          "description": "The date the rate applies on, as 2006-01-02. A monthly rate applies to the whole month of this date.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "kind",
+          "type": "enum",
+          "description": "daily is a rate for one day, monthly is one rate for a month, agreed is a rate fixed by agreement for that day.",
+          "required": true,
+          "values": [
+            "daily",
+            "monthly",
+            "agreed"
+          ],
+          "immutable": true
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "description": "Where the rate comes from, as the donor's rule names the source.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "replaces_id",
+          "type": "string",
+          "description": "The rate row this one corrects. Absent on a first entry of a rate.",
+          "immutable": true
+        },
+        {
+          "name": "recorded_by",
+          "type": "string",
+          "description": "Who entered the rate, supplied by the mount.",
+          "required": true,
+          "immutable": true
+        },
+        {
+          "name": "recorded_at",
+          "type": "timestamp",
+          "description": "When the rate was entered. Written by the store.",
+          "immutable": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "pair",
+          "description": "Finds the rates of one currency pair.",
+          "fields": [
+            "base",
+            "counter",
+            "applies_on"
+          ]
+        },
+        {
+          "name": "replaces",
+          "description": "Answers whether a rate has already been corrected.",
+          "fields": [
+            "replaces_id"
           ]
         }
       ]

@@ -90,7 +90,7 @@ func (m *ledgerStore) projectLineOf(ctx context.Context, b Budget, project strin
 	if err != nil {
 		return BudgetLine{}, err
 	}
-	line.Spent = balanceWithin(b.AccountID, carrying(entries, dimensionProject, project), from, to)
+	line.Spent = balanceOf(b.AccountID, inPeriod(carrying(entries, dimensionProject, project), from, to))
 	return line, nil
 }
 
@@ -102,6 +102,9 @@ func (m *ledgerStore) SendUpwardReport(ctx context.Context, in UpwardReportInput
 		return UpwardReport{}, fmt.Errorf("%w: an upward report names no sent_by", ErrInvalid)
 	}
 	if err := checkRecipientRecordRowID(in.RecipientRecordRowID); err != nil {
+		return UpwardReport{}, err
+	}
+	if err := checkConversionAsked(in.ReportingCurrency, in.Rule); err != nil {
 		return UpwardReport{}, err
 	}
 	sent := UpwardReport{
@@ -117,7 +120,7 @@ func (m *ledgerStore) SendUpwardReport(ctx context.Context, in UpwardReportInput
 	if err := m.checks(roleUpwardReport, sent); err != nil {
 		return UpwardReport{}, err
 	}
-	report, err := m.reportForProject(ctx, in.PeriodStart, in.PeriodEnd, sent.Project)
+	report, err := m.reportToSend(ctx, in)
 	if err != nil {
 		return UpwardReport{}, err
 	}
@@ -126,6 +129,8 @@ func (m *ledgerStore) SendUpwardReport(ctx context.Context, in UpwardReportInput
 	sent.Spent = report.Figures.Spent
 	sent.Difference = report.Figures.Difference
 	sent.Departments = report.Figures.Departments
+	sent.ReportingCurrency, sent.Rule = report.Currency, report.Rule
+	sent.Rates, sent.Original = report.Rates, report.Original
 	if in.Kind == models.UpwardBudgetAndActuals {
 		sent.Lines = report.Lines
 	}

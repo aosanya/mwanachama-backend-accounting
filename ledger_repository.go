@@ -21,6 +21,10 @@ type LedgerRepository interface {
 
 	UseOverpaymentAllowed(check OverpaymentAllowed)
 
+	RateRepository
+
+	ConvertedReportRepository
+
 	OpenAccount(ctx context.Context, a Account) (Account, error)
 
 	GetAccount(ctx context.Context, id string) (Account, error)
@@ -32,6 +36,8 @@ type LedgerRepository interface {
 	Post(ctx context.Context, e Entry) (Entry, error)
 
 	Balance(ctx context.Context, accountID string) (int64, error)
+
+	BalancesByCurrency(ctx context.Context, accountID string) ([]CurrencyAmount, error)
 
 	ListEntries(ctx context.Context, accountID string, limit int) ([]Entry, error)
 

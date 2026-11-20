@@ -19,6 +19,7 @@ type Entry struct {
 	DebitAccountID  string            `json:"debit_account_id"`
 	CreditAccountID string            `json:"credit_account_id"`
 	Amount          int64             `json:"amount"`
+	Currency        string            `json:"currency,omitempty"`
 	DocumentKind    DocumentKind      `json:"document_kind"`
 	DocumentID      string            `json:"document_id"`
 	ActorID         string            `json:"actor_id"`
@@ -36,6 +37,7 @@ type Budget struct {
 	Name        string `json:"name,omitempty"`
 	Department  string `json:"department,omitempty"`
 	Amount      int64  `json:"amount"`
+	Currency    string `json:"currency,omitempty"`
 	SetAt       string `json:"set_at"`
 	Create      bool   `json:"create,omitempty" spec:"-"`
 	Version     string `json:"version,omitempty" spec:"-"`
@@ -53,25 +55,29 @@ type BudgetLine struct {
 	PeriodEnd   string `json:"period_end"`
 	Planned     int64  `json:"planned"`
 	Spent       int64  `json:"spent"`
+	Currency    string `json:"currency"`
 	SetAt       string `json:"set_at"`
 
 	FollowMilestones bool             `json:"follow_milestones"`
 	CostShares       map[string]int64 `json:"cost_shares,omitempty"`
+	OtherSpent       []CurrencyAmount `json:"other_spent,omitempty"`
 }
 
 type Variance struct {
 	AccountID   string `json:"account_id"`
 	PeriodStart string `json:"period_start"`
 	PeriodEnd   string `json:"period_end"`
+	Currency    string `json:"currency"`
 	Budgeted    int64  `json:"budgeted"`
 	Actual      int64  `json:"actual"`
 	Difference  int64  `json:"difference"`
 }
 
 type DimensionTotal struct {
-	Value   string `json:"value"`
-	Total   int64  `json:"total"`
-	Entries int    `json:"entries"`
+	Value    string `json:"value"`
+	Currency string `json:"currency,omitempty"`
+	Total    int64  `json:"total"`
+	Entries  int    `json:"entries"`
 }
 
 type DimensionTotals struct {
@@ -81,12 +87,15 @@ type DimensionTotals struct {
 	PeriodEnd   string           `json:"period_end,omitempty"`
 	Totals      []DimensionTotal `json:"totals"`
 	Without     DimensionTotal   `json:"without"`
+
+	WithoutOther []DimensionTotal `json:"without_other,omitempty"`
 }
 
 type DimensionEntry struct {
 	ID           string `json:"id"`
 	OccurredAt   string `json:"occurred_at"`
 	Amount       int64  `json:"amount"`
+	Currency     string `json:"currency,omitempty"`
 	Whole        int64  `json:"whole,omitempty"`
 	SharePercent int64  `json:"share_percent,omitempty"`
 	Narration    string `json:"narration,omitempty"`

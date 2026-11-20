@@ -13,6 +13,9 @@ type UpwardReportInput struct {
 	Kind        UpwardReportKind `json:"kind"`
 	SentBy      string           `json:"sent_by"`
 
+	ReportingCurrency string         `json:"reporting_currency,omitempty"`
+	Rule              ConversionRule `json:"rule,omitempty"`
+
 	Recipient            string `json:"recipient,omitempty"`
 	RecipientRecordRowID string `json:"recipient_record_row_id,omitempty"`
 	Reference            string `json:"reference,omitempty"`
@@ -31,6 +34,11 @@ type UpwardReport struct {
 	Lines       []BudgetLine        `json:"lines,omitempty"`
 	SentBy      string              `json:"sent_by"`
 	SentAt      string              `json:"sent_at"`
+
+	ReportingCurrency string           `json:"reporting_currency,omitempty"`
+	Rule              ConversionRule   `json:"rule,omitempty"`
+	Rates             []UsedRate       `json:"rates,omitempty"`
+	Original          []CurrencyAmount `json:"original,omitempty"`
 
 	Recipient            string `json:"recipient,omitempty"`
 	RecipientRecordRowID string `json:"recipient_record_row_id,omitempty"`

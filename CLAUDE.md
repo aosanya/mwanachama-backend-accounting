@@ -165,9 +165,10 @@ historical record, and held by the consumer: an instance's
   `internal/api/http/capability.go`. Note the two differ: the declared
   actions are per-operation, the capability pair is read/write — reconcile
   deliberately rather than assuming they line up.
-- **Multi-currency.** Out of scope for this package — `Entry.Amount` has no
-  currency field; a deployment needing more than one currency runs one
-  ledger per currency.
+- **Multi-currency.** Built: an entry, budget, milestone, certificate and
+  quote carry a currency, a total never adds two, and a report converts by a
+  named rule over entered rates. See
+  [documentation/2. design/currency.md](documentation/2.%20design/currency.md).
 
 ## Conventions
 
