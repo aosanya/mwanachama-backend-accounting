@@ -5,6 +5,7 @@ type BillUpdate struct {
 	Payer            string `json:"payer,omitempty"`
 	PayerActorID     string `json:"payer_actor_id,omitempty"`
 	PayerRecordRowID string `json:"payer_record_row_id,omitempty"`
+	Project          string `json:"project,omitempty"`
 	Amount           int64  `json:"amount"`
 	DueAt            string `json:"due_at"`
 	Narration        string `json:"narration,omitempty"`

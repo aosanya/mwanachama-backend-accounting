@@ -26,12 +26,14 @@ const (
 	dimensionPayer      = "payer"
 	dimensionPayerActor = "payer_actor_id"
 	dimensionPayerRow   = "payer_record_row_id"
+	dimensionProject    = "project"
 )
 
 type BillFilter struct {
 	IncomeAccountID string   `query:"income_account_id"`
 	Status          string   `query:"status"`
 	Payer           string   `query:"payer"`
+	Project         string   `query:"project"`
 	ActorID         string   `query:"actor_id"`
 	RecordRowID     string   `query:"record_row_id"`
 	RecordRowIDs    []string `query:"-"`
@@ -77,6 +79,25 @@ func payerDimensions(payer, payerActorID, payerRecordRowID string) map[string]st
 	return dimensions
 }
 
+func billDimensions(payer, payerActorID, payerRecordRowID, project string) map[string]string {
+	dimensions := payerDimensions(payer, payerActorID, payerRecordRowID)
+	if project = strings.TrimSpace(project); project != "" {
+		if dimensions == nil {
+			dimensions = map[string]string{}
+		}
+		dimensions[dimensionProject] = project
+	}
+	return dimensions
+}
+
+func checkBillProject(project string) error {
+	project = strings.TrimSpace(project)
+	if project == "" {
+		return nil
+	}
+	return checkDimensionValue("project", project)
+}
+
 func checkPayerActorID(payerActorID string) error {
 	payerActorID = strings.TrimSpace(payerActorID)
 	if payerActorID == "" {
@@ -104,6 +125,9 @@ func checkBillInput(in BillInput) error {
 		return err
 	}
 	if err := checkPayerRecordRowID(in.PayerRecordRowID); err != nil {
+		return err
+	}
+	if err := checkBillProject(in.Project); err != nil {
 		return err
 	}
 	if strings.TrimSpace(in.IncomeAccountID) == "" {
@@ -140,7 +164,7 @@ func (m *ledgerStore) CreateBill(ctx context.Context, in BillInput) (Bill, error
 		DocumentID:      newID(),
 		ActorID:         in.BilledBy,
 		Narration:       in.Narration,
-		Dimensions:      payerDimensions(in.Payer, in.PayerActorID, in.PayerRecordRowID),
+		Dimensions:      billDimensions(in.Payer, in.PayerActorID, in.PayerRecordRowID, in.Project),
 	})
 	if err != nil {
 		return Bill{}, err
@@ -188,6 +212,9 @@ func (m *ledgerStore) billEntries(ctx context.Context, filter BillFilter) ([]Ent
 		if filter.ActorID != "" && e.Dimensions[dimensionPayerActor] != filter.ActorID {
 			continue
 		}
+		if filter.Project != "" && e.Dimensions[dimensionProject] != filter.Project {
+			continue
+		}
 		if !namesAnyRow(e.Dimensions, filter.RecordRowID, filter.RecordRowIDs) {
 			continue
 		}
@@ -223,6 +250,7 @@ func billOf(e Entry, reversed bool, paid int64, at time.Time) Bill {
 		Payer:               e.Dimensions[dimensionPayer],
 		PayerActorID:        e.Dimensions[dimensionPayerActor],
 		PayerRecordRowID:    e.Dimensions[dimensionPayerRow],
+		Project:             e.Dimensions[dimensionProject],
 		Amount:              e.Amount,
 		Settled:             paid,
 		Outstanding:         outstanding,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aosanya/mwanachama-backend-accounting/models"
 	"github.com/aosanya/mwanachama-backend-shared/specstore"
@@ -20,6 +21,7 @@ type (
 
 type UpwardReportFilter struct {
 	RecipientRecordRowID string `query:"recipient_record_row_id"`
+	Project              string `query:"project"`
 	Limit                int    `query:"limit"`
 }
 
@@ -40,6 +42,58 @@ func checkRecipientRecordRowID(recipientRecordRowID string) error {
 	return nil
 }
 
+func (m *ledgerStore) reportForProject(ctx context.Context, periodStart, periodEnd, project string) (FinancialReport, error) {
+	if project == "" {
+		return m.GetReport(ctx, periodStart, periodEnd)
+	}
+	from, to, err := parsePeriod(periodStart, periodEnd)
+	if err != nil {
+		return FinancialReport{}, err
+	}
+	budgets, err := specstore.List[Budget](m.st,
+		m.q(ctx, roleBudget).Where("period_start = ? AND period_end = ? AND department = ?", periodStart, periodEnd, project).Order("set_at, id"),
+		roleBudget)
+	if err != nil {
+		return FinancialReport{}, err
+	}
+	if len(budgets) == 0 {
+		return FinancialReport{}, ErrNotFound
+	}
+	lines := make([]BudgetLine, 0, len(budgets))
+	var figures ReportFigures
+	for _, b := range budgets {
+		line, err := m.projectLineOf(ctx, b, project, from, to)
+		if err != nil {
+			return FinancialReport{}, err
+		}
+		lines = append(lines, line)
+		figures.Planned += line.Planned
+		figures.Spent += line.Spent
+	}
+	figures.Difference = figures.Planned - figures.Spent
+	figures.Departments = departmentFigures(lines)
+	return FinancialReport{
+		Name:        reportName(from, to),
+		PeriodStart: periodStart,
+		PeriodEnd:   periodEnd,
+		Figures:     figures,
+		Lines:       lines,
+	}, nil
+}
+
+func (m *ledgerStore) projectLineOf(ctx context.Context, b Budget, project string, from, to time.Time) (BudgetLine, error) {
+	line, err := m.lineOf(ctx, b)
+	if err != nil {
+		return BudgetLine{}, err
+	}
+	entries, err := m.entriesTouching(ctx, m.db, b.AccountID, 0)
+	if err != nil {
+		return BudgetLine{}, err
+	}
+	line.Spent = balanceWithin(b.AccountID, carrying(entries, dimensionProject, project), from, to)
+	return line, nil
+}
+
 func (m *ledgerStore) SendUpwardReport(ctx context.Context, in UpwardReportInput) (UpwardReport, error) {
 	if err := m.keepsRole(roleUpwardReport, "upward reports"); err != nil {
 		return UpwardReport{}, err
@@ -55,11 +109,15 @@ func (m *ledgerStore) SendUpwardReport(ctx context.Context, in UpwardReportInput
 		Recipient:            strings.TrimSpace(in.Recipient),
 		RecipientRecordRowID: strings.TrimSpace(in.RecipientRecordRowID),
 		Reference:            strings.TrimSpace(in.Reference),
+		Project:              strings.TrimSpace(in.Project),
+	}
+	if err := checkBillProject(sent.Project); err != nil {
+		return UpwardReport{}, err
 	}
 	if err := m.checks(roleUpwardReport, sent); err != nil {
 		return UpwardReport{}, err
 	}
-	report, err := m.GetReport(ctx, in.PeriodStart, in.PeriodEnd)
+	report, err := m.reportForProject(ctx, in.PeriodStart, in.PeriodEnd, sent.Project)
 	if err != nil {
 		return UpwardReport{}, err
 	}
@@ -93,6 +151,9 @@ func (m *ledgerStore) ListUpwardReports(ctx context.Context, filter UpwardReport
 	q := m.q(ctx, roleUpwardReport).Order("sent_at desc, id desc").Limit(limit)
 	if row := strings.TrimSpace(filter.RecipientRecordRowID); row != "" {
 		q = q.Where("recipient_record_row_id = ?", row)
+	}
+	if project := strings.TrimSpace(filter.Project); project != "" {
+		q = q.Where("project = ?", project)
 	}
 	return specstore.List[UpwardReport](m.st, q, roleUpwardReport)
 }
